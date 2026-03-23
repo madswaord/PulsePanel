@@ -1,0 +1,19 @@
+version: '3.9'
+services:
+  pulsepanel-backend:
+    build:
+      context: ./backend
+    env_file:
+      - .env
+    ports:
+      - "8710:8710"
+    restart: unless-stopped
+
+  pulsepanel-frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8711:80"
+    restart: unless-stopped
+    depends_on:
+      - pulsepanel-backend

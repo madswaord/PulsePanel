@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PulsePanel</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --panel: rgba(15, 22, 40, 0.78);
+      --panel-border: rgba(83, 173, 255, 0.18);
+      --text: #eef4ff;
+      --muted: #8ea3c7;
+      --cyan: #00e5ff;
+      --purple: #7c4dff;
+      --green: #00ffb3;
+      --orange: #ff9f43;
+      --red: #ff4d6d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(124,77,255,0.22), transparent 25%),
+        radial-gradient(circle at top left, rgba(0,229,255,0.18), transparent 25%),
+        linear-gradient(180deg, #050812 0%, #0a1020 100%);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1500px; margin: 0 auto; padding: 24px; }
+    .topbar { display:flex; justify-content:space-between; align-items:end; margin-bottom:24px; }
+    .brand h1 { margin:0; font-size:40px; letter-spacing:0.04em; }
+    .brand p { margin:8px 0 0; color:var(--muted); }
+    .status-dot { width:10px; height:10px; border-radius:50%; background:var(--green); box-shadow:0 0 16px var(--green); display:inline-block; margin-right:8px; }
+    .grid-top { display:grid; grid-template-columns: repeat(6, 1fr); gap:16px; margin-bottom:16px; }
+    .grid-main { display:grid; grid-template-columns: 2fr 1.2fr; gap:16px; margin-bottom:16px; }
+    .grid-bottom { display:grid; grid-template-columns: 1.2fr 1fr 1fr; gap:16px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 18px;
+    }
+    .panel h3 { margin:0 0 12px; font-size:14px; text-transform:uppercase; color:var(--muted); letter-spacing:0.12em; }
+    .metric { font-size:34px; font-weight:800; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .chart-box { height: 280px; display:flex; align-items:center; justify-content:center; color:var(--muted); border:1px dashed rgba(255,255,255,0.08); border-radius:16px; }
+    .list { display:flex; flex-direction:column; gap:10px; }
+    .row { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-radius:14px; background: rgba(255,255,255,0.03); }
+    .row small { display:block; color:var(--muted); margin-top:4px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .tag { padding:4px 8px; border-radius:999px; background:rgba(0,229,255,0.08); color:var(--cyan); font-size:12px; }
+    .tag.warn { background:rgba(255,159,67,0.12); color:var(--orange); }
+    @media (max-width: 1280px) {
+      .grid-top { grid-template-columns: repeat(3, 1fr); }
+      .grid-main, .grid-bottom { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .grid-top { grid-template-columns: 1fr; }
+      .brand h1 { font-size: 30px; }
+      .topbar { flex-direction:column; align-items:start; gap:12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <h1>PulsePanel</h1>
+        <p>OPNsense 实时态势面板 · 新潮科技风网络控制台</p>
+      </div>
+      <div><span class="status-dot"></span><span id="clock">--</span></div>
+    </div>
+
+    <section class="grid-top" id="overview-cards"></section>
+
+    <section class="grid-main">
+      <div class="panel">
+        <h3>WAN 流量脉冲</h3>
+        <div class="chart-box" id="wan-chart">等待接入实时图表数据</div>
+      </div>
+      <div class="panel">
+        <h3>防火墙态势</h3>
+        <div class="chart-box" id="fw-chart">等待接入连接数/Block 趋势</div>
+      </div>
+    </section>
+
+    <section class="grid-bottom">
+      <div class="panel">
+        <h3>在线终端</h3>
+        <div class="list" id="clients-list"></div>
+      </div>
+      <div class="panel">
+        <h3>VPN 状态</h3>
+        <div class="list" id="vpn-list"></div>
+      </div>
+      <div class="panel">
+        <h3>系统健康</h3>
+        <div class="list" id="system-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const API = 'http://localhost:8710/api';
+
+    function updateClock() {
+      document.getElementById('clock').textContent = new Date().toLocaleString('zh-CN');
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    async function fetchJSON(path) {
+      const res = await fetch(`${API}${path}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    function card(title, value, sub) {
+      return `<div class="panel"><h3>${title}</h3><div class="metric">${value}</div><div class="sub">${sub || ''}</div></div>`;
+    }
+
+    async function loadOverview() {
+      const data = await fetchJSON('/dashboard/overview');
+      document.getElementById('overview-cards').innerHTML = [
+        card('WAN 链路', data.wan.online ? '在线' : '离线', `延迟 ${data.wan.latencyMs} ms · 丢包 ${data.wan.packetLossPct}%`),
+        card('总下载', data.throughput.downloadHuman, '当前下行速率'),
+        card('总上传', data.throughput.uploadHuman, '当前上行速率'),
+        card('防火墙', data.firewall.activeStates, `最近 1 分钟 Block ${data.firewall.blockedLastMinute}`),
+        card('VPN 在线', data.vpn.totalOnline, `WG ${data.vpn.providers.wireguard} · OVPN ${data.vpn.providers.openvpn}`),
+        card('DNS 脉冲', `${data.dns.qps} QPS`, data.dns.status)
+      ].join('');
+
+      document.getElementById('system-list').innerHTML = [
+        `<div class="row"><div>CPU<small>当前占用</small></div><div class="tag">${data.system.cpuPct}%</div></div>`,
+        `<div class="row"><div>内存<small>当前占用</small></div><div class="tag">${data.system.memoryPct}%</div></div>`,
+        `<div class="row"><div>磁盘<small>当前占用</small></div><div class="tag warn">${data.system.diskPct}%</div></div>`,
+        `<div class="row"><div>整体状态<small>系统健康</small></div><div class="tag">${data.system.status}</div></div>`
+      ].join('');
+    }
+
+    async function loadClients() {
+      const data = await fetchJSON('/dashboard/clients/online');
+      document.getElementById('clients-list').innerHTML = data.clients.map(c => `
+        <div class="row">
+          <div>
+            <strong>${c.hostname}</strong>
+            <small>${c.ip}</small>
+          </div>
+          <div class="mono sub">在线</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadVpn() {
+      const data = await fetchJSON('/dashboard/vpn/online');
+      document.getElementById('vpn-list').innerHTML = [
+        `<div class="row"><div><strong>总在线人数</strong><small>VPN 当前总在线</small></div><div class="tag">${data.totalOnline}</div></div>`,
+        `<div class="row"><div><strong>WireGuard</strong><small>在线 Peer</small></div><div class="tag">${data.providers.wireguard}</div></div>`,
+        `<div class="row"><div><strong>OpenVPN</strong><small>在线 Client</small></div><div class="tag warn">${data.providers.openvpn}</div></div>`
+      ].join('');
+    }
+
+    async function boot() {
+      try {
+        await Promise.all([loadOverview(), loadClients(), loadVpn()]);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    boot();
+    setInterval(boot, 5000);
+  </script>
+</body>
+</html>
