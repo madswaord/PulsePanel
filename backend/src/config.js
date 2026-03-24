@@ -1,6 +1,13 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..', '..');
+const envPath = path.join(projectRoot, '.env');
+
+dotenv.config({ path: envPath });
 
 function toBool(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -30,6 +37,9 @@ export function loadConfig() {
       enableCaddyLogs: toBool(process.env.ENABLE_CADDY_LOGS, false),
       enableDnsLogs: toBool(process.env.ENABLE_DNS_LOGS, false),
       trafficProvider: process.env.TRAFFIC_PROVIDER || 'core'
+    },
+    runtime: {
+      envPath
     }
   };
 }
@@ -85,6 +95,7 @@ export function getConfigSummary(config) {
       timeoutMs: config.opnsense.timeoutMs
     },
     features: config.features,
+    runtime: config.runtime,
     validation
   };
 }
