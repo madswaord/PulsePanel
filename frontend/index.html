@@ -232,6 +232,25 @@
       return `<span class="tag ${type}">${text}</span>`;
     }
 
+    function formatAge(seconds) {
+      if (seconds == null || Number.isNaN(seconds)) return '未知';
+      if (seconds < 60) return `${seconds} 秒前`;
+      if (seconds < 3600) return `${Math.round(seconds / 60)} 分钟前`;
+      if (seconds < 86400) return `${Math.round(seconds / 3600)} 小时前`;
+      return `${Math.round(seconds / 86400)} 天前`;
+    }
+
+    function shortText(text, max = 28) {
+      if (!text) return '未知设备';
+      return text.length > max ? `${text.slice(0, max)}…` : text;
+    }
+
+    function peerStatusRank(status) {
+      if (status === 'online') return 0;
+      if (status === 'stale') return 1;
+      return 2;
+    }
+
     function drawSeries(canvas, datasets, colors) {
       const ctx = canvas.getContext('2d');
       const w = canvas.width;
@@ -365,15 +384,22 @@
     async function loadClients() {
       const data = await fetchJSON('/dashboard/clients/online');
       document.getElementById('clients-total').textContent = data.totalOnline;
-      document.getElementById('clients-list').innerHTML = data.clients.length ? data.clients.map(c => `
-        <div class="client-card">
-          <div class="client-main">
-            <strong>${c.hostname}</strong>
-            <div class="client-meta">${c.ip} · ${c.interface || 'unknown'} · 最近活跃 ${Math.max(1, Math.round(Date.now()/1000 - c.lastSeen))} 秒前</div>
+      const clients = (data.clients || []).slice().sort((a, b) => (a.lastSeen || 0) - (b.lastSeen || 0)).slice(0, 8);
+      document.getElementById('clients-list').innerHTML = clients.length ? clients.map(c => {
+        const title = c.hostname && c.hostname !== c.ip ? shortText(c.hostname, 24) : shortText(c.vendor || c.ip, 24);
+        const subtitle = [c.ip, c.interface || 'unknown', c.vendor ? shortText(c.vendor, 22) : null].filter(Boolean).join(' · ');
+        const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
+        return `
+          <div class="client-card">
+            <div class="client-main">
+              <strong>${title}</strong>
+              <div class="client-meta">${subtitle}</div>
+              <div class="client-meta">最近活跃 ${formatAge(age)}</div>
+            </div>
+            <div>${badge('在线', 'ok')}</div>
           </div>
-          <div>${badge('在线', 'ok')}</div>
-        </div>
-      `).join('') : `<div class="row"><div><strong>暂无终端列表</strong><small>当前权限或接口未提供在线终端明细</small></div><div>${badge('待接入', 'dim')}</div></div>`;
+        `;
+      }).join('') : `<div class="row"><div><strong>暂无终端列表</strong><small>当前权限或接口未提供在线终端明细</small></div><div>${badge('待接入', 'dim')}</div></div>`;
     }
 
     async function loadVpn() {
@@ -384,10 +410,12 @@
         `<div class="row"><div><strong>WireGuard</strong><small>在线 Peer</small></div><div class="tag">${data.providers.wireguard}</div></div>`,
         `<div class="row"><div><strong>OpenVPN</strong><small>在线 Client</small></div><div class="tag warn">${data.providers.openvpn}</div></div>`
       ];
-      (data.peers || []).slice(0, 4).forEach(peer => {
+      const peers = (data.peers || []).slice().sort((a, b) => peerStatusRank(a.status) - peerStatusRank(b.status)).slice(0, 4);
+      peers.forEach(peer => {
         const statusType = peer.status === 'online' ? 'ok' : (peer.status === 'stale' ? 'warn' : 'dim');
-        const ageText = peer.latestHandshakeAge == null ? '无握手' : `${peer.latestHandshakeAge} 秒前`;
-        rows.push(`<div class="row"><div><strong>${peer.name}</strong><small>${peer.endpoint} · 最近握手 ${ageText}</small></div><div>${badge(peer.status, statusType)}</div></div>`);
+        const ageText = peer.latestHandshakeAge == null ? '无握手' : formatAge(peer.latestHandshakeAge);
+        const endpoint = shortText(peer.endpoint || '(none)', 28);
+        rows.push(`<div class="row"><div><strong>${shortText(peer.name, 18)}</strong><small>${endpoint} · 最近握手 ${ageText}</small></div><div>${badge(peer.status, statusType)}</div></div>`);
       });
       document.getElementById('vpn-list').innerHTML = rows.join('');
     }
