@@ -177,7 +177,7 @@
         <div class="section-head">
           <div>
             <h3>在线终端</h3>
-            <div class="sub">当前活跃 LAN 终端</div>
+            <div class="sub" id="clients-subtitle">当前活跃终端资产</div>
           </div>
           <div class="metric-mini" id="clients-total">--</div>
         </div>
@@ -399,19 +399,23 @@
     async function loadClients() {
       const data = await fetchJSON('/dashboard/clients/online');
       document.getElementById('clients-total').textContent = data.totalOnline;
+      const groups = Object.entries(data.groups || {}).sort((a, b) => b[1] - a[1]);
+      document.getElementById('clients-subtitle').textContent = groups.length
+        ? groups.map(([name, count]) => `${name} ${count}`).slice(0, 3).join(' · ')
+        : '当前活跃终端资产';
       const clients = (data.clients || []).slice().sort((a, b) => (a.lastSeen || 0) - (b.lastSeen || 0)).slice(0, 8);
       document.getElementById('clients-list').innerHTML = clients.length ? clients.map(c => {
         const title = c.hostname && c.hostname !== c.ip ? shortText(c.hostname, 24) : shortText(c.vendor || c.ip, 24);
-        const subtitle = [c.ip, c.interface || 'unknown', c.vendor ? shortText(c.vendor, 22) : null].filter(Boolean).join(' · ');
+        const subtitle = [c.ip, c.vendor ? shortText(c.vendor, 22) : null].filter(Boolean).join(' · ');
         const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
         return `
           <div class="client-card">
             <div class="client-main">
               <strong>${title}</strong>
-              <div class="client-meta">${subtitle}</div>
+              <div class="client-meta">${subtitle || c.ip}</div>
               <div class="client-meta">最近活跃 ${formatAge(age)}</div>
             </div>
-            <div>${badge('在线', 'ok')}</div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge(c.interface || 'unknown', 'dim')}${badge('在线', 'ok')}</div>
           </div>
         `;
       }).join('') : `<div class="row"><div><strong>暂无终端列表</strong><small>当前权限或接口未提供在线终端明细</small></div><div>${badge('待接入', 'dim')}</div></div>`;

@@ -563,8 +563,14 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     async getClientsOnline() {
       const arp = await safeArpSearch();
       const clients = arp.ok ? parseArpPayload(arp.data) : [];
+      const groups = clients.reduce((acc, client) => {
+        const key = client.interface || 'unknown';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
       return {
         totalOnline: clients.length,
+        groups,
         clients: clients.slice(0, 20)
       };
     },
