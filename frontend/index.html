@@ -450,8 +450,7 @@
           `<strong>关键服务</strong> ${serviceRunning}/${(data.system.services || []).length}`
         ], [formatSummaryTag(data.system.summaryStatus)], data.system.summaryStatus === 'degraded' ? 'danger' : data.system.summaryStatus === 'elevated' ? 'warning' : ''),
         card('关键服务', `${serviceRunning}`, [
-          ...((data.system.services || []).slice(0, 3).map(service => `<strong>${service.id}</strong> ${service.running ? '运行中' : '未运行'}`)),
-          `<strong>接入状态</strong> ${data.system.statusText || 'unknown'}`
+          ...((data.system.services || []).slice(0, 3).map(service => `<strong>${service.id}</strong> ${service.running ? '运行中' : '未运行'}`))
         ], [badge('服务', 'ok')]),
         card('DNS 视图', data.dns.status || 'unknown', [
           `<strong>状态</strong> 当前仅保留真实占位`,
