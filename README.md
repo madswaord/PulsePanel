@@ -137,9 +137,9 @@ http://你的服务器IP:8710/api
 
 ---
 
-# 4. Docker 部署（推荐）
+# 4. 非 Docker 直接运行
 
-这是后续最推荐的运行方式。
+如果你不想用 Docker，也可以直接在 Linux 主机上运行前后端。
 
 ## 4.1 准备 `.env`
 
@@ -151,7 +151,141 @@ cp .env.example .env
 
 ---
 
-## 4.2 构建并启动
+## 4.2 启动后端
+
+```bash
+cd backend
+npm install
+npm start
+```
+
+默认监听：
+
+```text
+http://0.0.0.0:8710
+```
+
+---
+
+## 4.3 启动前端
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+默认访问：
+
+```text
+http://0.0.0.0:8711
+```
+
+---
+
+## 4.4 做成 systemd 自启动服务（推荐）
+
+如果你希望机器重启后自动起来，最推荐用 `systemd`。
+
+### 后端服务示例
+
+新建：
+
+```bash
+sudo nano /etc/systemd/system/pulsepanel-backend.service
+```
+
+写入：
+
+```ini
+[Unit]
+Description=PulsePanel Backend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pulsepanel/backend
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+User=root
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 前端服务示例
+
+新建：
+
+```bash
+sudo nano /etc/systemd/system/pulsepanel-frontend.service
+```
+
+写入：
+
+```ini
+[Unit]
+Description=PulsePanel Frontend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pulsepanel/frontend
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+User=root
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 使服务生效
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable pulsepanel-backend
+sudo systemctl enable pulsepanel-frontend
+sudo systemctl start pulsepanel-backend
+sudo systemctl start pulsepanel-frontend
+```
+
+### 查看状态
+
+```bash
+sudo systemctl status pulsepanel-backend
+sudo systemctl status pulsepanel-frontend
+```
+
+### 查看日志
+
+```bash
+journalctl -u pulsepanel-backend -f
+journalctl -u pulsepanel-frontend -f
+```
+
+> 注意：上面的 `/opt/pulsepanel` 只是示例路径。你实际部署在哪，就把 `WorkingDirectory` 改成你的真实路径。
+
+---
+
+# 5. Docker 部署（推荐）
+
+这是后续最推荐的运行方式。
+
+## 5.1 准备 `.env`
+
+```bash
+cp .env.example .env
+```
+
+然后改成你的 OPNsense 实际配置。
+
+---
+
+## 5.2 构建并启动
 
 在项目根目录执行：
 
@@ -161,7 +295,7 @@ docker compose up -d --build
 
 ---
 
-## 4.3 访问地址
+## 5.3 访问地址
 
 - 前端：
   ```text
@@ -174,7 +308,7 @@ docker compose up -d --build
 
 ---
 
-## 4.4 停止服务
+## 5.4 停止服务
 
 ```bash
 docker compose down
@@ -182,7 +316,7 @@ docker compose down
 
 ---
 
-## 4.5 查看日志
+## 5.5 查看日志
 
 ```bash
 docker compose logs -f pulsepanel-backend
@@ -191,7 +325,7 @@ docker compose logs -f pulsepanel-frontend
 
 ---
 
-# 5. 如何判断是否接入成功
+# 6. 如何判断是否接入成功
 
 ## 5.1 检查后端健康
 
@@ -225,7 +359,7 @@ curl http://127.0.0.1:8710/api/opnsense/probe
 
 ---
 
-# 6. 当前页面说明
+# 7. 当前页面说明
 
 ## 首屏概览
 - WAN 链路
@@ -248,7 +382,7 @@ curl http://127.0.0.1:8710/api/opnsense/probe
 
 ---
 
-# 7. 当前设计原则
+# 8. 当前设计原则
 
 ## 7.1 真实数据优先
 能拿到真数据就显示真数据。
@@ -268,7 +402,7 @@ curl http://127.0.0.1:8710/api/opnsense/probe
 
 ---
 
-# 8. 已知限制
+# 9. 已知限制
 
 当前 OPNsense API 权限/接口限制下：
 
@@ -280,7 +414,7 @@ curl http://127.0.0.1:8710/api/opnsense/probe
 
 ---
 
-# 9. 后续建议路线
+# 10. 后续建议路线
 
 接下来可以继续做的方向：
 
@@ -292,7 +426,7 @@ curl http://127.0.0.1:8710/api/opnsense/probe
 
 ---
 
-# 10. 一句话部署教程
+# 11. 一句话部署教程
 
 如果你只是想快速跑起来：
 
