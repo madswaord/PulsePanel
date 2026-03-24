@@ -70,6 +70,9 @@ export function createDeviceIdentityStore(projectRoot) {
         hostname: client.hostname || existing.hostname || '',
         displayName,
         aliases: Array.from(new Set(aliases)),
+        notes: existing.notes || '',
+        role: existing.role || '',
+        tags: existing.tags || [],
         lastSeen: client.lastSeen,
         firstSeen: existing.firstSeen || client.lastSeen,
         updatedAt: Math.floor(Date.now() / 1000)
