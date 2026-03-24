@@ -454,9 +454,8 @@
           `<strong>接入状态</strong> ${data.system.statusText || 'unknown'}`
         ], [badge('服务', 'ok')]),
         card('DNS 视图', data.dns.status || 'unknown', [
-          `<strong>当前状态</strong> OPNsense dnsmasq/unbound 统计暂不可用`,
-          `<strong>保留策略</strong> 先保持真实占位，不伪造数据`,
-          `<strong>后续</strong> 如需要再接外部 DNS 数据源`
+          `<strong>状态</strong> 当前仅保留真实占位`,
+          `<strong>后续</strong> 可再接外部 DNS 数据源`
         ], [badge('占位', 'warn')], 'warning')
       ].join('');
 
