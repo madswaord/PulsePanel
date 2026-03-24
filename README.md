@@ -218,6 +218,39 @@ cp backend/data/device-aliases.example.json backend/data/device-aliases.json
 2. 再读取 `device-aliases.json`
 3. 如果命中别名，页面优先显示这个名称
 
+### 怎么快速找到要写的 MAC
+
+最简单的方法是直接看设备身份库：
+
+```bash
+cat backend/data/devices.json
+```
+
+里面会按 MAC 记录当前识别到的设备，例如：
+
+```json
+{
+  "devices": {
+    "6c:4a:85:23:8b:35": {
+      "mac": "6c:4a:85:23:8b:35",
+      "ip": "192.168.10.26",
+      "interface": "LAN",
+      "displayName": "Apple"
+    }
+  }
+}
+```
+
+你只要把这个 MAC 抄到 `device-aliases.json` 里即可。
+
+### 推荐使用方式
+
+建议流程：
+1. 先打开 PulsePanel，看终端列表里有哪些设备
+2. 再查看 `backend/data/devices.json` 找到对应 MAC
+3. 写入 `backend/data/device-aliases.json`
+4. 刷新页面确认名称是否变成你想要的样子
+
 如果你改了别名文件：
 - 一般刷新页面后就能看到
 - 如果后端已缓存旧身份，可重启 backend 让显示更快同步
