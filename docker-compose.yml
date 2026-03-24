@@ -3,6 +3,7 @@ services:
   pulsepanel-backend:
     build:
       context: ./backend
+    container_name: pulsepanel-backend
     env_file:
       - .env
     ports:
@@ -12,6 +13,7 @@ services:
   pulsepanel-frontend:
     build:
       context: ./frontend
+    container_name: pulsepanel-frontend
     ports:
       - "8711:80"
     restart: unless-stopped
