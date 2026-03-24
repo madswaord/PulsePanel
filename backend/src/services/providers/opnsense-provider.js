@@ -146,14 +146,16 @@ function parseGatewayStatusPayload(payload) {
   };
 }
 
-function normalizeWanInterface(item) {
+function normalizeWanInterface(item, fallbackIpv6 = null) {
   const stats = item.statistics || {};
+  const rawIpv6 = (item.addr6 || '').split('/')[0] || null;
+  const ipv6 = rawIpv6 && !rawIpv6.startsWith('fe80:') ? rawIpv6 : fallbackIpv6;
   return {
     name: item.description || item.identifier || item.device || 'WAN',
     interface: item.identifier || null,
     device: item.device || null,
     ipv4: (item.addr4 || '').split('/')[0] || null,
-    ipv6: (item.addr6 || '').split('/')[0] || null,
+    ipv6,
     gateways: Array.isArray(item.gateways) ? item.gateways : [],
     rxBytes: pickNumber(stats['bytes received'], stats.bytesReceived, stats.rxbytes),
     txBytes: pickNumber(stats['bytes transmitted'], stats.bytesTransmitted, stats.txbytes),
@@ -163,18 +165,21 @@ function normalizeWanInterface(item) {
 
 function parseInterfacesPayload(payload) {
   const rows = Array.isArray(payload) ? payload : [];
+  const lan = rows.find((item) => item.identifier === 'lan' || item.description === 'LAN');
+  const lanIpv6 = (lan?.addr6 || '').split('/')[0] || null;
   const wanCandidates = rows.filter((item) => item && (
     item.identifier === 'wan'
     || String(item.description || '').toUpperCase().includes('WAN')
     || String(item.device || '').startsWith('pppoe')
   ));
 
-  const wans = wanCandidates.map(normalizeWanInterface);
+  const wans = wanCandidates.map((item) => normalizeWanInterface(item, item.identifier === 'wan' ? lanIpv6 : null));
   const primary = wans[0] || null;
 
   return {
     primary,
-    wans
+    wans,
+    lanIpv6
   };
 }
 
