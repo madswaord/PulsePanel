@@ -42,7 +42,7 @@
     .brand h1 { margin:0; font-size:40px; letter-spacing:0.04em; }
     .brand p { margin:8px 0 0; color:var(--muted); }
     .status-dot { width:10px; height:10px; border-radius:50%; background:var(--green); box-shadow:0 0 16px var(--green); display:inline-block; margin-right:8px; }
-    .grid-top { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:16px; margin-bottom:16px; }
+    .grid-top { display:block; margin-bottom:16px; }
     .grid-main { display:grid; grid-template-columns: 2fr 1.2fr; gap:16px; margin-bottom:16px; }
     .grid-bottom { display:grid; grid-template-columns: 1.2fr 1fr 1fr; gap:16px; }
     .panel {
@@ -57,6 +57,11 @@
     .metric { font-size:34px; font-weight:800; }
     .sub { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .overview-card { display:flex; flex-direction:column; gap:12px; min-height:160px; }
+    .overview-shell { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:12px; }
+    .overview-block { padding:12px; border-radius:16px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.04); }
+    .overview-block h4 { margin:0 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+    .overview-block .mini { font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
+    .overview-block .line { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4; }
     .overview-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
     .overview-meta { display:flex; flex-wrap:wrap; gap:8px; }
     .overview-lines { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:13px; line-height:1.45; }
@@ -256,17 +261,17 @@
       return res.json();
     }
 
-    function card(title, value, lines = [], badges = [], tone = '') {
+    function overviewBlock(title, value, lines = [], badges = []) {
       return `
-        <div class="panel overview-card ${tone}">
-          <div class="overview-top">
+        <div class="overview-block">
+          <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
             <div>
-              <h3>${title}</h3>
-              <div class="metric">${value}</div>
+              <h4>${title}</h4>
+              <div class="mini">${value}</div>
             </div>
             <div class="overview-meta">${badges.join(' ')}</div>
           </div>
-          <div class="overview-lines">${lines.map(line => `<div>${line}</div>`).join('')}</div>
+          ${lines.map(line => `<div class="line">${line}</div>`).join('')}
         </div>
       `;
     }
@@ -417,44 +422,44 @@
     async function loadOverview() {
       const data = await fetchJSON('/dashboard/overview');
       const serviceRunning = (data.system.services || []).filter(item => item.running).length;
-      document.getElementById('overview-cards').innerHTML = [
-        card('WAN 链路', `${(data.wan.wans || []).length || 1} WAN`, [
-          ...((data.wan.wans || []).map((w, idx) => `<strong>${idx + 1}. ${w.name}</strong> ${w.device || '--'} · IPv4 ${w.ipv4 || '--'} · IPv6 ${w.ipv6 || '--'}`).slice(0, 4)),
-          `<strong>主监测</strong> ${data.wan.monitorIp || '待映射'}`,
-          `<strong>延迟 / 丢包</strong> ${data.wan.latencyMs ?? '--'} ms / ${data.wan.packetLossPct ?? '--'}%`
-        ], [badge(data.wan.statusText || 'unknown', data.wan.online ? 'ok' : 'err')], 'primary'),
-        card('WAN 吞吐', data.throughput.downloadHuman, [
-          `<strong>主 WAN 下载</strong> ${data.throughput.downloadHuman}`,
-          `<strong>主 WAN 上传</strong> ${data.throughput.uploadHuman}`,
-          `<strong>当前主链路</strong> ${(data.wan.interfaceName || data.wan.device || 'WAN')} · IPv4 ${data.wan.publicIp || '--'}`,
-          `<strong>主 WAN IPv6</strong> ${data.wan.publicIpv6 || '待映射'}`
-        ], [badge('实时', 'ok')], 'primary'),
-        card('防火墙态势', `${data.firewall.activeStates}`, [
-          `<strong>压力状态</strong> ${data.firewall.status || 'unknown'}`,
-          `<strong>连接占用</strong> ${data.firewall.pressurePct ?? '--'}%`,
-          `<strong>上限</strong> ${data.firewall.limit || '--'}`
-        ], [badge(data.firewall.status || 'unknown', data.firewall.status === 'high' ? 'err' : data.firewall.status === 'elevated' ? 'warn' : 'ok')], data.firewall.status === 'high' ? 'danger' : data.firewall.status === 'elevated' ? 'warning' : ''),
-        card('VPN 在线', `${data.vpn.totalOnline}`, [
-          `<strong>WireGuard</strong> ${data.vpn.providers.wireguard}`,
-          `<strong>OpenVPN</strong> ${data.vpn.providers.openvpn}`,
-          `<strong>在线 Peer</strong> ${(data.vpn.peers || []).filter(peer => peer.status === 'online').map(peer => peer.name).slice(0, 2).join(' · ') || '无'}`
-        ], [badge(data.vpn.totalOnline > 0 ? '活跃' : '空闲', data.vpn.totalOnline > 0 ? 'ok' : 'dim')]),
-        card('终端资产', `${document.getElementById('clients-total').textContent || data.clients?.totalOnline || '--'}`, [
-          `<strong>分组</strong> ${document.getElementById('clients-subtitle').textContent || '待加载'}`,
-          `<strong>状态</strong> 按网段聚合展示`
-        ], [badge('资产', 'ok')]),
-        card('系统健康', data.system.summaryText || '待确认', [
-          `<strong>CPU / 内存</strong> ${data.system.cpuPct ?? '--'}% / ${data.system.memoryPct ?? '--'}%`,
-          `<strong>磁盘</strong> ${data.system.diskPct ?? '--'}%`
-        ], [formatSummaryTag(data.system.summaryStatus)], data.system.summaryStatus === 'degraded' ? 'danger' : data.system.summaryStatus === 'elevated' ? 'warning' : ''),
-        card('关键服务', `${serviceRunning}`, [
-          ...((data.system.services || []).slice(0, 3).map(service => `<strong>${service.id}</strong> ${service.running ? '运行中' : '未运行'}`))
-        ], [badge('服务', 'ok')]),
-        card('DNS 视图', data.dns.status || 'unknown', [
-          `<strong>状态</strong> 当前仅保留真实占位`,
-          `<strong>后续</strong> 可再接外部 DNS 数据源`
-        ], [badge('占位', 'warn')], 'warning')
-      ].join('');
+      document.getElementById('overview-cards').innerHTML = `
+        <div class="panel overview-card primary">
+          <div class="overview-top">
+            <div>
+              <h3>总控总览</h3>
+              <div class="metric">PulsePanel</div>
+            </div>
+            <div class="overview-meta">${badge(data.wan.online ? '网络在线' : '网络异常', data.wan.online ? 'ok' : 'err')} ${formatSummaryTag(data.system.summaryStatus)}</div>
+          </div>
+          <div class="overview-shell">
+            ${overviewBlock('WAN', `${(data.wan.wans || []).length || 1} WAN`, [
+              ...((data.wan.wans || []).slice(0, 2).map(w => `${w.name} · ${w.ipv4 || '--'} · ${w.ipv6 || '--'}`)),
+              `延迟 ${data.wan.latencyMs ?? '--'} ms · 丢包 ${data.wan.packetLossPct ?? '--'}%`
+            ], [badge(data.wan.statusText || 'unknown', data.wan.online ? 'ok' : 'err')])}
+            ${overviewBlock('吞吐', data.throughput.downloadHuman, [
+              `下载 ${data.throughput.downloadHuman}`,
+              `上传 ${data.throughput.uploadHuman}`,
+              `主链路 ${data.wan.interfaceName || data.wan.device || 'WAN'}`
+            ], [badge('实时', 'ok')])}
+            ${overviewBlock('防火墙', `${data.firewall.activeStates}`, [
+              `压力 ${data.firewall.pressurePct ?? '--'}%`,
+              `状态 ${data.firewall.status || 'unknown'}`
+            ], [badge(data.firewall.status || 'unknown', data.firewall.status === 'high' ? 'err' : data.firewall.status === 'elevated' ? 'warn' : 'ok')])}
+            ${overviewBlock('VPN', `${data.vpn.totalOnline}`, [
+              `WireGuard ${data.vpn.providers.wireguard}`,
+              `OpenVPN ${data.vpn.providers.openvpn}`
+            ], [badge(data.vpn.totalOnline > 0 ? '活跃' : '空闲', data.vpn.totalOnline > 0 ? 'ok' : 'dim')])}
+            ${overviewBlock('终端', `${document.getElementById('clients-total').textContent || '--'}`, [
+              `${document.getElementById('clients-subtitle').textContent || '待加载'}`,
+              '按网段聚合展示'
+            ], [badge('资产', 'ok')])}
+            ${overviewBlock('系统', data.system.summaryText || '待确认', [
+              `CPU ${data.system.cpuPct ?? '--'}% · 内存 ${data.system.memoryPct ?? '--'}%`,
+              `磁盘 ${data.system.diskPct ?? '--'}%`
+            ], [formatSummaryTag(data.system.summaryStatus)])}
+          </div>
+        </div>
+      `;
 
       const systemStatusTag = formatSystemStatusTag(data.system.status);
       const summaryTag = formatSummaryTag(data.system.summaryStatus);
