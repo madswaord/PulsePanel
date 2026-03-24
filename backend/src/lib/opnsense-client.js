@@ -91,6 +91,18 @@ export function createOpnsenseClient(config) {
     },
     async getGatewayStatus() {
       return request('GET', '/api/routes/gateway/status');
+    },
+    async getDiagnosticsSystemResources() {
+      return request('GET', '/api/diagnostics/system/system_resources');
+    },
+    async getDiagnosticsSystemMemory() {
+      return request('GET', '/api/diagnostics/system/memory');
+    },
+    async getDiagnosticsSystemDisk() {
+      return request('GET', '/api/diagnostics/system/system_disk');
+    },
+    async getDiagnosticsCpuStream() {
+      return request('GET', '/api/diagnostics/cpu_usage/stream');
     }
   };
 }
