@@ -413,17 +413,16 @@
       const data = await fetchJSON('/dashboard/overview');
       const serviceRunning = (data.system.services || []).filter(item => item.running).length;
       document.getElementById('overview-cards').innerHTML = [
-        card('WAN 链路', data.wan.online ? '在线' : '离线', [
-          `<strong>主链路</strong> ${data.wan.interfaceName || data.wan.device || 'WAN'}`,
-          `<strong>IPv4 / IPv6</strong> ${data.wan.publicIp || '待映射'} / ${data.wan.publicIpv6 || '待映射'}`,
-          `<strong>默认网关</strong> ${data.wan.gatewayAddress || '待映射'}`,
-          `<strong>多 WAN</strong> ${((data.wan.wans || []).map(w => `${w.name}:${w.ipv4 || '--'}|${w.ipv6 || '--'}`).slice(0, 2).join(' · ')) || '单 WAN'}`,
+        card('WAN 链路', `${(data.wan.wans || []).length || 1} WAN`, [
+          ...((data.wan.wans || []).slice(0, 3).map(w => `<strong>${w.name}</strong> IPv4 ${w.ipv4 || '--'} · IPv6 ${w.ipv6 || '--'}`)),
+          `<strong>主监测</strong> ${data.wan.monitorIp || '待映射'}`,
           `<strong>延迟 / 丢包</strong> ${data.wan.latencyMs ?? '--'} ms / ${data.wan.packetLossPct ?? '--'}%`
         ], [badge(data.wan.statusText || 'unknown', data.wan.online ? 'ok' : 'err')], 'primary'),
         card('WAN 吞吐', data.throughput.downloadHuman, [
-          `<strong>当前下载</strong> ${data.throughput.downloadHuman}`,
-          `<strong>当前上传</strong> ${data.throughput.uploadHuman}`,
-          `<strong>监测目标</strong> ${data.wan.monitorIp || '待映射'}`
+          `<strong>主 WAN 下载</strong> ${data.throughput.downloadHuman}`,
+          `<strong>主 WAN 上传</strong> ${data.throughput.uploadHuman}`,
+          `<strong>当前主链路</strong> ${data.wan.interfaceName || data.wan.device || 'WAN'}`,
+          `<strong>IPv6</strong> ${data.wan.publicIpv6 || '待映射'}`
         ], [badge('实时', 'ok')], 'primary'),
         card('防火墙态势', `${data.firewall.activeStates}`, [
           `<strong>压力状态</strong> ${data.firewall.status || 'unknown'}`,

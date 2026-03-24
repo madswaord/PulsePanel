@@ -38,9 +38,11 @@ export function createDeviceIdentityStore(projectRoot) {
         aliases: []
       };
 
-      const displayName = client.hostname && client.hostname !== client.ip
-        ? client.hostname
-        : existing.displayName || client.vendor || client.ip;
+      const displayName = existing.aliases?.[0]
+        || (client.hostname && client.hostname !== client.ip ? client.hostname : null)
+        || existing.displayName
+        || client.vendor
+        || client.ip;
 
       devices[mac] = {
         ...existing,
