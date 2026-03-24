@@ -56,6 +56,7 @@
     .tag.warn { background:rgba(255,159,67,0.12); color:var(--orange); }
     .tag.ok { background:rgba(0,255,179,0.10); color:var(--green); }
     .tag.err { background:rgba(255,77,109,0.10); color:var(--red); }
+    .tag.dim { background:rgba(255,255,255,0.07); color:#cbd6ec; }
     .system-banner {
       margin-bottom: 16px;
       display:flex;
@@ -258,6 +259,19 @@
       });
     }
 
+    function formatSystemStatusTag(status) {
+      if (status === 'reachable') return badge('已接入', 'ok');
+      if (status === 'unreachable') return badge('不可达', 'err');
+      if (status === 'unknown') return badge('待映射', 'dim');
+      return badge('模拟中', 'warn');
+    }
+
+    function formatWanSub(wan) {
+      const latency = wan.latencyMs == null ? '待映射' : `${wan.latencyMs} ms`;
+      const loss = wan.packetLossPct == null ? '待映射' : `${wan.packetLossPct}%`;
+      return `状态 ${wan.statusText} · 延迟 ${latency} · 丢包 ${loss}`;
+    }
+
     async function loadIntegrationStatus() {
       const [health, capabilities] = await Promise.all([
         fetchJSON('/health'),
@@ -287,7 +301,7 @@
     async function loadOverview() {
       const data = await fetchJSON('/dashboard/overview');
       document.getElementById('overview-cards').innerHTML = [
-        card('WAN 链路', data.wan.online ? '在线' : '离线', `状态 ${data.wan.statusText} · 延迟 ${data.wan.latencyMs ?? '--'} ms`),
+        card('WAN 链路', data.wan.online ? '在线' : '离线', formatWanSub(data.wan)),
         card('总下载', data.throughput.downloadHuman, '当前下行速率'),
         card('总上传', data.throughput.uploadHuman, '当前上行速率'),
         card('防火墙', data.firewall.activeStates, `最近 1 分钟 Block ${data.firewall.blockedLastMinute}`),
@@ -295,18 +309,13 @@
         card('DNS 脉冲', `${data.dns.qps} QPS`, data.dns.status)
       ].join('');
 
-      const systemStatusTag = data.system.status === 'reachable'
-        ? badge('已接入', 'ok')
-        : data.system.status === 'unreachable'
-          ? badge('不可达', 'err')
-          : badge('模拟中', 'warn');
-
+      const systemStatusTag = formatSystemStatusTag(data.system.status);
       document.getElementById('system-status-badge').innerHTML = systemStatusTag;
       document.getElementById('system-list').innerHTML = [
-        `<div class="row"><div><strong>CPU</strong><small>当前占用 ${data.system.cpuPct ?? '--'}${data.system.cpuPct != null ? '%' : ''}</small><div class="health-bar"><div class="health-fill fill-cpu" style="width:${data.system.cpuPct ?? 0}%"></div></div></div></div>`,
-        `<div class="row"><div><strong>内存</strong><small>当前占用 ${data.system.memoryPct ?? '--'}${data.system.memoryPct != null ? '%' : ''}</small><div class="health-bar"><div class="health-fill fill-mem" style="width:${data.system.memoryPct ?? 0}%"></div></div></div></div>`,
-        `<div class="row"><div><strong>磁盘</strong><small>当前占用 ${data.system.diskPct ?? '--'}${data.system.diskPct != null ? '%' : ''}</small><div class="health-bar"><div class="health-fill fill-disk" style="width:${data.system.diskPct ?? 0}%"></div></div></div></div>`,
-        `<div class="row"><div><strong>状态</strong><small>设备接入与资源概况</small></div><div>${systemStatusTag}</div></div>`
+        `<div class="row"><div><strong>CPU</strong><small>${data.system.cpuPct == null ? '真实字段待映射' : `当前占用 ${data.system.cpuPct}%`}</small><div class="health-bar"><div class="health-fill fill-cpu" style="width:${data.system.cpuPct ?? 0}%"></div></div></div></div>`,
+        `<div class="row"><div><strong>内存</strong><small>${data.system.memoryPct == null ? '真实字段待映射' : `当前占用 ${data.system.memoryPct}%`}</small><div class="health-bar"><div class="health-fill fill-mem" style="width:${data.system.memoryPct ?? 0}%"></div></div></div></div>`,
+        `<div class="row"><div><strong>磁盘</strong><small>${data.system.diskPct == null ? '真实字段待映射' : `当前占用 ${data.system.diskPct}%`}</small><div class="health-bar"><div class="health-fill fill-disk" style="width:${data.system.diskPct ?? 0}%"></div></div></div></div>`,
+        `<div class="row"><div><strong>状态</strong><small>${data.system.status === 'reachable' ? '已连到真实 OPNsense' : data.system.status === 'unreachable' ? '后端已配置但 OPNsense 不可达' : data.system.status === 'unknown' ? '接口已尝试但字段仍待映射' : '当前使用模拟数据'}</small></div><div>${systemStatusTag}</div></div>`
       ].join('');
     }
 
