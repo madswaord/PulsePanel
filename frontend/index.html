@@ -284,7 +284,7 @@
     }
 
     function compactDeviceName(client) {
-      const raw = client.hostname && client.hostname !== client.ip ? client.hostname : (client.vendor || client.ip || '未知设备');
+      const raw = client.displayName || (client.hostname && client.hostname !== client.ip ? client.hostname : (client.vendor || client.ip || '未知设备'));
       const replacements = [
         ['Proxmox Server Solutions GmbH', 'Proxmox'],
         ['TP-LINK TECHNOLOGIES CO.,LTD.', 'TP-LINK'],
@@ -528,11 +528,12 @@
           const title = compactDeviceName(c);
           const subtitle = [c.ip, c.vendor ? shortText(c.vendor, 18) : null].filter(Boolean).join(' · ');
           const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
+          const aliasNote = (c.aliases || []).length ? ` · 别名 ${(c.aliases || []).slice(0, 1).join(', ')}` : '';
           return `
             <div class="client-card">
               <div class="client-main">
                 <strong>${title}</strong>
-                <div class="client-meta">${subtitle || c.ip}</div>
+                <div class="client-meta">${subtitle || c.ip}${aliasNote}</div>
                 <div class="client-meta">最近活跃 ${formatAge(age)} · 流量/速率待接入</div>
               </div>
               <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge('在线', 'ok')}</div>
