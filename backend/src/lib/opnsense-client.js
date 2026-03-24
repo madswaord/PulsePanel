@@ -1,13 +1,13 @@
 import { HttpError } from './http-error.js';
 import https from 'node:https';
+import { URL } from 'node:url';
 
 function buildAuthHeader(apiKey, apiSecret) {
   const token = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
   return `Basic ${token}`;
 }
 
-async function parseJsonSafe(response) {
-  const text = await response.text();
+function parseBody(text) {
   if (!text) return null;
   try {
     return JSON.parse(text);
@@ -18,51 +18,66 @@ async function parseJsonSafe(response) {
 
 export function createOpnsenseClient(config) {
   const { baseUrl, apiKey, apiSecret, verifyTls, timeoutMs } = config.opnsense;
-  const httpsAgent = new https.Agent({ rejectUnauthorized: verifyTls });
 
-  async function request(method, path, body) {
+  function request(method, path, body) {
     if (!baseUrl || !apiKey || !apiSecret) {
-      throw new HttpError(500, 'OPNsense API 配置不完整');
+      return Promise.reject(new HttpError(500, 'OPNsense API 配置不完整'));
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+    const url = new URL(path.startsWith('/') ? path : `/${path}`, baseUrl);
+    const payload = body ? JSON.stringify(body) : null;
 
-    try {
-      const response = await fetch(url, {
+    return new Promise((resolve, reject) => {
+      const req = https.request({
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: `${url.pathname}${url.search}`,
         method,
+        rejectUnauthorized: verifyTls,
         headers: {
           'Authorization': buildAuthHeader(apiKey, apiSecret),
           'Accept': 'application/json',
-          ...(body ? { 'Content-Type': 'application/json' } : {})
+          ...(payload ? {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload)
+          } : {})
         },
-        body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-        agent: parsedUrl => parsedUrl.protocol === 'https:' ? httpsAgent : undefined
+        timeout: timeoutMs
+      }, (res) => {
+        let raw = '';
+        res.setEncoding('utf8');
+        res.on('data', chunk => raw += chunk);
+        res.on('end', () => {
+          const data = parseBody(raw);
+          if ((res.statusCode || 500) >= 400) {
+            reject(new HttpError(res.statusCode || 500, `OPNsense API 请求失败: ${res.statusCode}`, data));
+            return;
+          }
+          resolve(data);
+        });
       });
 
-      const data = await parseJsonSafe(response);
-
-      if (!response.ok) {
-        throw new HttpError(response.status, `OPNsense API 请求失败: ${response.status}`, data);
-      }
-
-      return data;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new HttpError(504, 'OPNsense API 请求超时');
-      }
-      if (error instanceof HttpError) {
-        throw error;
-      }
-      throw new HttpError(502, '无法连接 OPNsense API', {
-        message: error.message,
-        verifyTls
+      req.on('timeout', () => {
+        req.destroy(new Error('timeout'));
       });
-    } finally {
-      clearTimeout(timer);
-    }
+
+      req.on('error', (error) => {
+        if (error.message === 'timeout') {
+          reject(new HttpError(504, 'OPNsense API 请求超时'));
+          return;
+        }
+        reject(new HttpError(502, '无法连接 OPNsense API', {
+          message: error.message,
+          verifyTls
+        }));
+      });
+
+      if (payload) {
+        req.write(payload);
+      }
+      req.end();
+    });
   }
 
   return {
