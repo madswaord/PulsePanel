@@ -84,8 +84,8 @@
   <div class="wrap">
     <div class="topbar">
       <div class="brand">
-        <h1>PulsePanel</h1>
-        <p>OPNsense 实时态势面板 · 新潮科技风网络控制台</p>
+        <h1 id="brand-name">PulsePanel</h1>
+        <p id="brand-subtitle">OPNsense 实时态势面板 · 新潮科技风网络控制台</p>
       </div>
       <div><span class="status-dot"></span><span id="clock">--</span></div>
     </div>
@@ -127,8 +127,12 @@
     </section>
   </div>
 
+  <script src="./runtime-config.js"></script>
   <script>
-    const API = 'http://localhost:8710/api';
+    const runtimeConfig = window.PULSEPANEL_CONFIG || {};
+    const API = runtimeConfig.apiBaseUrl || 'http://localhost:8710/api';
+    document.getElementById('brand-name').textContent = runtimeConfig.brandName || 'PulsePanel';
+    document.getElementById('brand-subtitle').textContent = runtimeConfig.brandSubtitle || 'OPNsense 实时态势面板 · 新潮科技风网络控制台';
 
     function updateClock() {
       document.getElementById('clock').textContent = new Date().toLocaleString('zh-CN');
