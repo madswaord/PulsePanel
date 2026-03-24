@@ -114,9 +114,9 @@ app.get('/api/dashboard/vpn/online', async (_req, res, next) => {
   }
 });
 
-app.get('/api/dashboard/firewall/states', async (_req, res, next) => {
+app.get('/api/dashboard/firewall/states', async (req, res, next) => {
   try {
-    res.json(await dashboardService.getFirewallStates());
+    res.json(await dashboardService.getFirewallStates(req.query.range || '10m'));
   } catch (error) {
     next(error);
   }

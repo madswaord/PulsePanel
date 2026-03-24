@@ -228,11 +228,18 @@ function parseServicesPayload(payload) {
 
 export function createOpnsenseProvider(opnsenseClient, logger, deviceIdentityStore) {
   const wanSamples = [];
+  const firewallSamples = [];
 
   function pushWanSample(sample) {
     if (!sample) return;
     wanSamples.push(sample);
     while (wanSamples.length > 120) wanSamples.shift();
+  }
+
+  function pushFirewallSample(sample) {
+    if (!sample) return;
+    firewallSamples.push(sample);
+    while (firewallSamples.length > 720) firewallSamples.shift();
   }
 
   function buildWanRate(sample) {
@@ -627,9 +634,13 @@ export function createOpnsenseProvider(opnsenseClient, logger, deviceIdentitySto
       };
     },
 
-    async getFirewallStates() {
+    async getFirewallStates(range = '10m') {
       const states = await safeFirewallStates();
       const parsed = states.ok ? parseFirewallStatesPayload(states.data) : { activeStates: 0 };
+      const now = nowTs();
+      pushFirewallSample({ ts: now, value: parsed.activeStates });
+      const rangeSeconds = range === '1h' ? 3600 : range === '30m' ? 1800 : 600;
+      const trend = firewallSamples.filter((item) => item.ts >= now - rangeSeconds);
       const limit = parsed.limit ?? 0;
       const pressurePct = limit > 0 ? Math.round((parsed.activeStates / limit) * 1000) / 10 : null;
       const status = pressurePct == null ? 'unknown' : pressurePct >= 85 ? 'high' : pressurePct >= 60 ? 'elevated' : 'normal';
@@ -638,10 +649,8 @@ export function createOpnsenseProvider(opnsenseClient, logger, deviceIdentitySto
         limit,
         pressurePct,
         status,
-        trend: Array.from({ length: 12 }, (_, idx) => ({
-          ts: nowTs() - (11 - idx) * 5,
-          value: parsed.activeStates
-        }))
+        range,
+        trend: trend.length ? trend : [{ ts: now, value: parsed.activeStates }]
       };
     }
   };

@@ -226,6 +226,7 @@
           <div class="chart-meta">
             <div class="legend">
               <span><i class="dot red"></i>实时连接数</span>
+              <span id="fw-range-switch" class="legend"><span class="tag dim" data-range="10m">10m</span><span class="tag dim" data-range="30m">30m</span><span class="tag dim" data-range="1h">1h</span></span>
             </div>
             <div><strong id="fw-current">--</strong></div>
           </div>
@@ -524,10 +525,15 @@
       drawSeries(canvas, [rx, tx], ['#00e5ff', '#7c4dff']);
     }
 
+    let firewallRange = '10m';
+
     async function loadFirewallChart() {
-      const data = await fetchJSON('/dashboard/firewall/states');
+      const data = await fetchJSON(`/dashboard/firewall/states?range=${firewallRange}`);
       const pressure = data.pressurePct == null ? '压力未知' : `压力 ${data.pressurePct}%`;
       document.getElementById('fw-current').textContent = `${data.activeStates} · ${pressure}`;
+      document.querySelectorAll('#fw-range-switch [data-range]').forEach(el => {
+        el.className = el.dataset.range === firewallRange ? 'tag ok' : 'tag dim';
+      });
       const canvas = document.getElementById('fw-canvas');
       const values = data.trend.map(p => ({ value: p.value }));
       drawSeries(canvas, [values], ['#ff4d6d']);
@@ -695,6 +701,13 @@
         document.getElementById('integration-badges').innerHTML = badge('通信失败', 'err');
       }
     }
+    document.querySelectorAll('#fw-range-switch [data-range]').forEach(el => {
+      el.addEventListener('click', () => {
+        firewallRange = el.dataset.range;
+        loadFirewallChart().catch(console.error);
+      });
+    });
+
     boot();
     setInterval(boot, 5000);
 

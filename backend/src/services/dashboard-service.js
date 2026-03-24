@@ -30,6 +30,6 @@ export function createDashboardService({ config, opnsenseClient, logger, deviceI
     getWanThroughput: () => provider.getWanThroughput(),
     getWanTimeseries: (range) => provider.getWanTimeseries(range),
     getClientsOnline: () => provider.getClientsOnline(),
-    getFirewallStates: () => provider.getFirewallStates()
+    getFirewallStates: (range) => provider.getFirewallStates(range)
   };
 }
