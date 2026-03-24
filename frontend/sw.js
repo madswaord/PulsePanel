@@ -1,4 +1,4 @@
-const CACHE = 'pulsepanel-static-v1';
+const CACHE = 'pulsepanel-static-v2';
 const ASSETS = [
   './',
   './index.html',
