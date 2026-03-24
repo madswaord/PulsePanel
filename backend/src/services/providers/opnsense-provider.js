@@ -602,9 +602,12 @@ export function createOpnsenseProvider(opnsenseClient, logger, deviceIdentitySto
       return buildWanRate(sample);
     },
 
-    async getWanTimeseries(range = '5m') {
+    async getWanTimeseries(range = '10m') {
       await collectWanSample();
-      const points = wanSamples.slice(-60).map((sample, idx, arr) => {
+      const now = nowTs();
+      const rangeSeconds = range === '1h' ? 3600 : range === '30m' ? 1800 : 600;
+      const filtered = wanSamples.filter((sample) => sample.ts >= now - rangeSeconds);
+      const points = filtered.map((sample, idx, arr) => {
         if (idx === 0) return { ts: sample.ts, rx: 0, tx: 0 };
         const prev = arr[idx - 1];
         const dt = sample.ts - prev.ts;

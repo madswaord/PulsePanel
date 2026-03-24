@@ -214,8 +214,9 @@
             <div class="legend">
               <span><i class="dot cyan"></i>下载</span>
               <span><i class="dot purple"></i>上传</span>
+              <span id="wan-range-switch" class="legend"><span class="tag dim" data-range="10m">10m</span><span class="tag dim" data-range="30m">30m</span><span class="tag dim" data-range="1h">1h</span></span>
             </div>
-            <div><strong id="wan-chart-range">5 分钟窗口</strong></div>
+            <div><strong id="wan-chart-range">10m</strong></div>
           </div>
           <div class="chart-box"><canvas id="wan-canvas" width="900" height="230"></canvas></div>
         </div>
@@ -508,9 +509,14 @@
       ].join('');
     }
 
+    let wanRange = '10m';
+
     async function loadWanChart() {
-      const data = await fetchJSON('/dashboard/wan/timeseries?range=5m');
-      document.getElementById('wan-chart-range').textContent = data.range || '5 分钟窗口';
+      const data = await fetchJSON(`/dashboard/wan/timeseries?range=${wanRange}`);
+      document.getElementById('wan-chart-range').textContent = data.range || wanRange;
+      document.querySelectorAll('#wan-range-switch [data-range]').forEach(el => {
+        el.className = el.dataset.range === wanRange ? 'tag ok' : 'tag dim';
+      });
       const canvas = document.getElementById('wan-canvas');
       const rx = data.points.map(p => ({ value: p.rx }));
       const tx = data.points.map(p => ({ value: p.tx }));
@@ -705,6 +711,12 @@
       el.addEventListener('click', () => {
         firewallRange = el.dataset.range;
         loadFirewallChart().catch(console.error);
+      });
+    });
+    document.querySelectorAll('#wan-range-switch [data-range]').forEach(el => {
+      el.addEventListener('click', () => {
+        wanRange = el.dataset.range;
+        loadWanChart().catch(console.error);
       });
     });
 
