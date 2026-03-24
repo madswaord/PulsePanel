@@ -441,7 +441,6 @@
         ], [badge(data.vpn.totalOnline > 0 ? '活跃' : '空闲', data.vpn.totalOnline > 0 ? 'ok' : 'dim')]),
         card('终端资产', `${document.getElementById('clients-total').textContent || data.clients?.totalOnline || '--'}`, [
           `<strong>分组</strong> ${document.getElementById('clients-subtitle').textContent || '待加载'}`,
-          `<strong>活跃资产</strong> 终端面板已接入真实 ARP`,
           `<strong>状态</strong> 按网段聚合展示`
         ], [badge('资产', 'ok')]),
         card('系统健康', data.system.summaryText || '待确认', [
