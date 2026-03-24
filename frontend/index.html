@@ -525,8 +525,10 @@
           fetchJSON('/smartdns/top/clients'),
           fetchJSON('/smartdns/top/domains')
         ]);
-        const clientText = Array.isArray(topClients.data || topClients.clients) ? (topClients.data || topClients.clients).slice(0, 3).map(item => item.client || item.name || item.ip).filter(Boolean).join(' · ') : '暂无';
-        const domainText = Array.isArray(topDomains.data || topDomains.domains) ? (topDomains.data || topDomains.domains).slice(0, 3).map(item => item.domain || item.name).filter(Boolean).join(' · ') : '暂无';
+        const clientItems = topClients.client_top_list || topClients.data || topClients.clients || [];
+        const domainItems = topDomains.domain_top_list || topDomains.data || topDomains.domains || [];
+        const clientText = Array.isArray(clientItems) ? clientItems.slice(0, 3).map(item => item.client_ip || item.client || item.name || item.ip).filter(Boolean).join(' · ') : '暂无';
+        const domainText = Array.isArray(domainItems) ? domainItems.slice(0, 3).map(item => item.domain || item.name).filter(Boolean).join(' · ') : '暂无';
         document.getElementById('dns-zone').innerHTML = `
           <div class="section-head">
             <div>
