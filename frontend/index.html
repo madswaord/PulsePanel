@@ -34,7 +34,7 @@
     .brand h1 { margin:0; font-size:40px; letter-spacing:0.04em; }
     .brand p { margin:8px 0 0; color:var(--muted); }
     .status-dot { width:10px; height:10px; border-radius:50%; background:var(--green); box-shadow:0 0 16px var(--green); display:inline-block; margin-right:8px; }
-    .grid-top { display:grid; grid-template-columns: repeat(6, 1fr); gap:16px; margin-bottom:16px; }
+    .grid-top { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:16px; margin-bottom:16px; }
     .grid-main { display:grid; grid-template-columns: 2fr 1.2fr; gap:16px; margin-bottom:16px; }
     .grid-bottom { display:grid; grid-template-columns: 1.2fr 1fr 1fr; gap:16px; }
     .panel {
@@ -48,6 +48,11 @@
     .panel h3 { margin:0 0 12px; font-size:14px; text-transform:uppercase; color:var(--muted); letter-spacing:0.12em; }
     .metric { font-size:34px; font-weight:800; }
     .sub { color: var(--muted); font-size: 13px; }
+    .overview-card { display:flex; flex-direction:column; gap:12px; min-height:160px; }
+    .overview-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+    .overview-meta { display:flex; flex-wrap:wrap; gap:8px; }
+    .overview-lines { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:13px; }
+    .overview-lines strong { color:var(--text); font-size:13px; }
     .list { display:flex; flex-direction:column; gap:10px; }
     .row { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-radius:14px; background: rgba(255,255,255,0.03); }
     .row small { display:block; color:var(--muted); margin-top:4px; }
@@ -110,7 +115,7 @@
     .fill-mem { background:linear-gradient(90deg, #00ffb3, #00e5ff); }
     .fill-disk { background:linear-gradient(90deg, #ff9f43, #ff4d6d); }
     @media (max-width: 1280px) {
-      .grid-top { grid-template-columns: repeat(3, 1fr); }
+      .grid-top { grid-template-columns: repeat(2, 1fr); }
       .grid-main, .grid-bottom { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
@@ -224,8 +229,19 @@
       return res.json();
     }
 
-    function card(title, value, sub) {
-      return `<div class="panel"><h3>${title}</h3><div class="metric">${value}</div><div class="sub">${sub || ''}</div></div>`;
+    function card(title, value, lines = [], badges = []) {
+      return `
+        <div class="panel overview-card">
+          <div class="overview-top">
+            <div>
+              <h3>${title}</h3>
+              <div class="metric">${value}</div>
+            </div>
+            <div class="overview-meta">${badges.join(' ')}</div>
+          </div>
+          <div class="overview-lines">${lines.map(line => `<div>${line}</div>`).join('')}</div>
+        </div>
+      `;
     }
 
     function badge(text, type = '') {
@@ -354,13 +370,48 @@
 
     async function loadOverview() {
       const data = await fetchJSON('/dashboard/overview');
+      const serviceRunning = (data.system.services || []).filter(item => item.running).length;
       document.getElementById('overview-cards').innerHTML = [
-        card('WAN 链路', data.wan.online ? '在线' : '离线', formatWanSub(data.wan)),
-        card('总下载', data.throughput.downloadHuman, '当前下行速率'),
-        card('总上传', data.throughput.uploadHuman, '当前上行速率'),
-        card('防火墙', data.firewall.activeStates, formatFirewallSub(data.firewall)),
-        card('VPN 在线', data.vpn.totalOnline, `WG ${data.vpn.providers.wireguard} · OVPN ${data.vpn.providers.openvpn}`),
-        card('DNS 脉冲', `${data.dns.qps} QPS`, data.dns.status)
+        card('WAN 链路', data.wan.online ? '在线' : '离线', [
+          `<strong>接口</strong> ${data.wan.interfaceName || data.wan.device || 'WAN'}`,
+          `<strong>公网 IP</strong> ${data.wan.publicIp || '待映射'}`,
+          `<strong>默认网关</strong> ${data.wan.gatewayAddress || '待映射'}`,
+          `<strong>延迟 / 丢包</strong> ${data.wan.latencyMs ?? '--'} ms / ${data.wan.packetLossPct ?? '--'}%`
+        ], [badge(data.wan.statusText || 'unknown', data.wan.online ? 'ok' : 'err')]),
+        card('WAN 吞吐', data.throughput.downloadHuman, [
+          `<strong>当前下载</strong> ${data.throughput.downloadHuman}`,
+          `<strong>当前上传</strong> ${data.throughput.uploadHuman}`,
+          `<strong>监测目标</strong> ${data.wan.monitorIp || '待映射'}`
+        ], [badge('实时', 'ok')]),
+        card('防火墙态势', `${data.firewall.activeStates}`, [
+          `<strong>压力状态</strong> ${data.firewall.status || 'unknown'}`,
+          `<strong>连接占用</strong> ${data.firewall.pressurePct ?? '--'}%`,
+          `<strong>上限</strong> ${data.firewall.limit || '--'}`
+        ], [badge(data.firewall.status || 'unknown', data.firewall.status === 'high' ? 'err' : data.firewall.status === 'elevated' ? 'warn' : 'ok')]),
+        card('VPN 在线', `${data.vpn.totalOnline}`, [
+          `<strong>WireGuard</strong> ${data.vpn.providers.wireguard}`,
+          `<strong>OpenVPN</strong> ${data.vpn.providers.openvpn}`,
+          `<strong>在线 Peer</strong> ${(data.vpn.peers || []).filter(peer => peer.status === 'online').map(peer => peer.name).slice(0, 2).join(' · ') || '无'}`
+        ], [badge(data.vpn.totalOnline > 0 ? '活跃' : '空闲', data.vpn.totalOnline > 0 ? 'ok' : 'dim')]),
+        card('终端资产', `${document.getElementById('clients-total').textContent || data.clients?.totalOnline || '--'}`, [
+          `<strong>分组</strong> ${document.getElementById('clients-subtitle').textContent || '待加载'}`,
+          `<strong>活跃资产</strong> 终端面板已接入真实 ARP`,
+          `<strong>状态</strong> 按网段聚合展示`
+        ], [badge('资产', 'ok')]),
+        card('系统健康', data.system.summaryText || '待确认', [
+          `<strong>CPU / 内存</strong> ${data.system.cpuPct ?? '--'}% / ${data.system.memoryPct ?? '--'}%`,
+          `<strong>磁盘</strong> ${data.system.diskPct ?? '--'}%`,
+          `<strong>关键服务</strong> ${serviceRunning}/${(data.system.services || []).length}`
+        ], [formatSummaryTag(data.system.summaryStatus)]),
+        card('关键服务', `${serviceRunning}`, [
+          ...((data.system.services || []).slice(0, 3).map(service => `<strong>${service.id}</strong> ${service.running ? '运行中' : '未运行'}`)),
+          `<strong>接入状态</strong> ${data.system.statusText || 'unknown'}`
+        ], [badge('服务', 'ok')]),
+        card('DNS 视图', data.dns.status || 'unknown', [
+          `<strong>当前状态</strong> OPNsense dnsmasq/unbound 统计暂不可用`,
+          `<strong>保留策略</strong> 先保持真实占位，不伪造数据`,
+          `<strong>后续</strong> 如需要再接外部 DNS 数据源`
+        ], [badge('占位', 'warn')])
       ].join('');
 
       const systemStatusTag = formatSystemStatusTag(data.system.status);
