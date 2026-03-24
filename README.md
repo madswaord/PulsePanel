@@ -137,16 +137,28 @@ npm start
 http://127.0.0.1:8711
 ```
 
-前端会自动把 API 指向：
+前端默认会自动把 API 指向：
 
 ```text
 http://当前访问主机:8710/api
 ```
 
-也就是说，如果你通过 `http://你的服务器IP:8711` 打开前端，前端会自动请求：
+也就是说，如果你通过 `http://你的服务器IP:8711` 打开前端，前端默认会请求：
 
 ```text
 http://你的服务器IP:8710/api
+```
+
+如果后续你要改成单入口或自定义 API 地址，也可以在前端运行环境里显式指定：
+
+```js
+window.PULSEPANEL_API_BASE_URL = '/api'
+```
+
+或者指定成完整地址：
+
+```js
+window.PULSEPANEL_API_BASE_URL = 'http://你的地址:8710/api'
 ```
 
 ---
@@ -419,6 +431,8 @@ cp .env.example .env
 ```bash
 docker compose up -d --build
 ```
+
+如果你后续希望把运行时数据（例如设备身份、alias 文件）映射到宿主机，可以考虑在 Docker 配置里为 `backend/data/` 做卷映射。当前仓库里的 compose 还是开发期结构，后续如果切换到单镜像交付，这个目录会是优先建议映射出来的配置路径之一。
 
 ---
 
