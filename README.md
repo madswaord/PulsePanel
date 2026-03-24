@@ -251,6 +251,13 @@ cp backend/data/device-aliases.example.json backend/data/device-aliases.json
 - `firstSeen`：首次识别时间
 - `lastSeen`：最近活跃时间
 
+SmartDNS 预留配置（用于 DNS 专题区）包括：
+- `SMARTDNS_ENABLED`
+- `SMARTDNS_BASE_URL`
+- `SMARTDNS_USERNAME`
+- `SMARTDNS_PASSWORD`
+- `SMARTDNS_TIMEOUT_MS`
+
 这些字段当前主要作为设备资产层的基础，后面可以继续用于：
 - 更清楚的终端展示
 - 资产分类

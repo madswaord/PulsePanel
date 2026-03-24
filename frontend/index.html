@@ -57,7 +57,7 @@
     .metric { font-size:34px; font-weight:800; }
     .sub { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .overview-card { display:flex; flex-direction:column; gap:12px; min-height:160px; }
-    .overview-shell { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:12px; }
+    .overview-shell { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; }
     .overview-block { padding:12px; border-radius:16px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.04); }
     .overview-block h4 { margin:0 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
     .overview-block .mini { font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
@@ -140,6 +140,7 @@
     @media (max-width: 1280px) {
       .grid-top { grid-template-columns: repeat(2, 1fr); }
       .grid-main, .grid-bottom { grid-template-columns: 1fr; }
+      .overview-shell { grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
     @media (max-width: 760px) {
       .grid-top { grid-template-columns: 1fr; }
@@ -149,6 +150,7 @@
       .wrap { padding: 16px; }
       .panel { padding: 14px; border-radius: 18px; }
       .metric { font-size: 28px; }
+      .overview-shell { grid-template-columns: 1fr; }
       .chart-wrap { height: 240px; }
       .chart-box { height: 190px; }
       .section-note { font-size: 11px; }
@@ -516,6 +518,53 @@
       drawSeries(canvas, [values], ['#ff4d6d']);
     }
 
+    async function loadDnsZone() {
+      try {
+        const [overview, topClients, topDomains] = await Promise.all([
+          fetchJSON('/smartdns/overview'),
+          fetchJSON('/smartdns/top/clients'),
+          fetchJSON('/smartdns/top/domains')
+        ]);
+        const clientText = Array.isArray(topClients.data || topClients.clients) ? (topClients.data || topClients.clients).slice(0, 3).map(item => item.client || item.name || item.ip).filter(Boolean).join(' · ') : '暂无';
+        const domainText = Array.isArray(topDomains.data || topDomains.domains) ? (topDomains.data || topDomains.domains).slice(0, 3).map(item => item.domain || item.name).filter(Boolean).join(' · ') : '暂无';
+        document.getElementById('dns-zone').innerHTML = `
+          <div class="section-head">
+            <div>
+              <h3>DNS 专题区</h3>
+              <div class="sub">SmartDNS 总览、Top Clients 与 Top Domains</div>
+            </div>
+            <div>${badge('SmartDNS', 'ok')}</div>
+          </div>
+          <div class="overview-shell">
+            ${overviewBlock('DNS 总览', overview.server_name || 'SmartDNS', [
+              `数据库 ${overview.database_size ?? '--'}`,
+              `可用空间 ${overview.free_disk_space ?? '--'}`,
+              `运行状态 ${overview.is_process_suspended ? '暂停' : '运行中'}`
+            ], [badge('Overview', 'ok')])}
+            ${overviewBlock('Top Clients', clientText || '暂无', [
+              '基于 SmartDNS 统计',
+              '后续可继续联动终端面板'
+            ], [badge('Top', 'warn')])}
+            ${overviewBlock('Top Domains', domainText || '暂无', [
+              '热门域名排行入口',
+              '后续可接滚动请求流'
+            ], [badge('Top', 'warn')])}
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById('dns-zone').innerHTML = `
+          <div class="section-head">
+            <div>
+              <h3>DNS 专题区</h3>
+              <div class="sub">SmartDNS 数据暂未成功接入</div>
+            </div>
+            <div>${badge('待接入', 'warn')}</div>
+          </div>
+          <div class="row"><div><strong>当前状态</strong><small>已完成 SmartDNS API 能力验证，但当前运行环境配置可能未补齐</small></div><div>${badge('需要配置', 'err')}</div></div>
+        `;
+      }
+    }
+
     async function loadClients() {
       const data = await fetchJSON('/dashboard/clients/online');
       document.getElementById('clients-total').textContent = data.totalOnline;
@@ -595,6 +644,7 @@
         await Promise.all([
           loadIntegrationStatus(),
           loadOverview(),
+          loadDnsZone(),
           loadWanChart(),
           loadFirewallChart(),
           loadClients(),
