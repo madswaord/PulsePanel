@@ -538,7 +538,7 @@
           const aliasBadge = (c.aliases || []).length ? badge('Alias', 'success') : badge('Auto', 'dim');
           const roleBadge = c.role ? badge(c.role, 'success') : '';
           const tagBadges = (c.tags || []).slice(0, 2).map(tag => badge(tag, 'warn')).join(' ');
-          const notesLine = c.notes ? `<div class="client-meta">备注 ${shortText(c.notes, 20)}</div>` : '';
+          const notesLine = c.notes ? `<div class="client-meta"><small>备注</small> ${shortText(c.notes, 20)}</div>` : '';
           return `
             <div class="client-card">
               <div class="client-main">
