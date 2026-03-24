@@ -53,6 +53,10 @@
     .overview-meta { display:flex; flex-wrap:wrap; gap:8px; }
     .overview-lines { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:13px; }
     .overview-lines strong { color:var(--text); font-size:13px; }
+    .section-note { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 4px 0 12px; }
+    .overview-card.primary { border-color: rgba(0,229,255,0.28); box-shadow: 0 24px 80px rgba(0, 229, 255, 0.08); }
+    .overview-card.warning { border-color: rgba(255,159,67,0.24); }
+    .overview-card.danger { border-color: rgba(255,77,109,0.24); }
     .list { display:flex; flex-direction:column; gap:10px; }
     .row { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-radius:14px; background: rgba(255,255,255,0.03); }
     .row small { display:block; color:var(--muted); margin-top:4px; }
@@ -147,8 +151,10 @@
       <div class="banner-notes" id="integration-notes"></div>
     </div>
 
+    <div class="section-note">首屏概览 · 关键状态压缩视图</div>
     <section class="grid-top" id="overview-cards"></section>
 
+    <div class="section-note">主图区 · 实时链路与防火墙波动</div>
     <section class="grid-main">
       <div class="panel">
         <h3>WAN 流量脉冲</h3>
@@ -177,6 +183,7 @@
       </div>
     </section>
 
+    <div class="section-note">明细区 · 终端、VPN 与系统运行态</div>
     <section class="grid-bottom">
       <div class="panel">
         <div class="section-head">
@@ -229,9 +236,9 @@
       return res.json();
     }
 
-    function card(title, value, lines = [], badges = []) {
+    function card(title, value, lines = [], badges = [], tone = '') {
       return `
-        <div class="panel overview-card">
+        <div class="panel overview-card ${tone}">
           <div class="overview-top">
             <div>
               <h3>${title}</h3>
@@ -377,17 +384,17 @@
           `<strong>公网 IP</strong> ${data.wan.publicIp || '待映射'}`,
           `<strong>默认网关</strong> ${data.wan.gatewayAddress || '待映射'}`,
           `<strong>延迟 / 丢包</strong> ${data.wan.latencyMs ?? '--'} ms / ${data.wan.packetLossPct ?? '--'}%`
-        ], [badge(data.wan.statusText || 'unknown', data.wan.online ? 'ok' : 'err')]),
+        ], [badge(data.wan.statusText || 'unknown', data.wan.online ? 'ok' : 'err')], 'primary'),
         card('WAN 吞吐', data.throughput.downloadHuman, [
           `<strong>当前下载</strong> ${data.throughput.downloadHuman}`,
           `<strong>当前上传</strong> ${data.throughput.uploadHuman}`,
           `<strong>监测目标</strong> ${data.wan.monitorIp || '待映射'}`
-        ], [badge('实时', 'ok')]),
+        ], [badge('实时', 'ok')], 'primary'),
         card('防火墙态势', `${data.firewall.activeStates}`, [
           `<strong>压力状态</strong> ${data.firewall.status || 'unknown'}`,
           `<strong>连接占用</strong> ${data.firewall.pressurePct ?? '--'}%`,
           `<strong>上限</strong> ${data.firewall.limit || '--'}`
-        ], [badge(data.firewall.status || 'unknown', data.firewall.status === 'high' ? 'err' : data.firewall.status === 'elevated' ? 'warn' : 'ok')]),
+        ], [badge(data.firewall.status || 'unknown', data.firewall.status === 'high' ? 'err' : data.firewall.status === 'elevated' ? 'warn' : 'ok')], data.firewall.status === 'high' ? 'danger' : data.firewall.status === 'elevated' ? 'warning' : ''),
         card('VPN 在线', `${data.vpn.totalOnline}`, [
           `<strong>WireGuard</strong> ${data.vpn.providers.wireguard}`,
           `<strong>OpenVPN</strong> ${data.vpn.providers.openvpn}`,
@@ -402,7 +409,7 @@
           `<strong>CPU / 内存</strong> ${data.system.cpuPct ?? '--'}% / ${data.system.memoryPct ?? '--'}%`,
           `<strong>磁盘</strong> ${data.system.diskPct ?? '--'}%`,
           `<strong>关键服务</strong> ${serviceRunning}/${(data.system.services || []).length}`
-        ], [formatSummaryTag(data.system.summaryStatus)]),
+        ], [formatSummaryTag(data.system.summaryStatus)], data.system.summaryStatus === 'degraded' ? 'danger' : data.system.summaryStatus === 'elevated' ? 'warning' : ''),
         card('关键服务', `${serviceRunning}`, [
           ...((data.system.services || []).slice(0, 3).map(service => `<strong>${service.id}</strong> ${service.running ? '运行中' : '未运行'}`)),
           `<strong>接入状态</strong> ${data.system.statusText || 'unknown'}`
@@ -411,7 +418,7 @@
           `<strong>当前状态</strong> OPNsense dnsmasq/unbound 统计暂不可用`,
           `<strong>保留策略</strong> 先保持真实占位，不伪造数据`,
           `<strong>后续</strong> 如需要再接外部 DNS 数据源`
-        ], [badge('占位', 'warn')])
+        ], [badge('占位', 'warn')], 'warning')
       ].join('');
 
       const systemStatusTag = formatSystemStatusTag(data.system.status);
