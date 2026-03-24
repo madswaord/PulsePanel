@@ -525,7 +525,7 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#8ea3c7';
         ctx.font = '14px sans-serif';
-        ctx.fillText('正在积累 WAN 流量样本…', 24, 32);
+        ctx.fillText(`正在积累 WAN ${wanRange} 样本…`, 24, 32);
         return;
       }
       drawSeries(canvas, [rx, tx], ['#00e5ff', '#7c4dff']);
@@ -542,6 +542,14 @@
       });
       const canvas = document.getElementById('fw-canvas');
       const values = data.trend.map(p => ({ value: p.value }));
+      if (data.trend.length < 2) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#8ea3c7';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`正在积累防火墙 ${firewallRange} 样本…`, 24, 32);
+        return;
+      }
       drawSeries(canvas, [values], ['#ff4d6d']);
     }
 
