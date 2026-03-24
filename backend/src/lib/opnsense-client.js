@@ -195,6 +195,9 @@ export function createOpnsenseClient(config) {
     },
     async getInterfacesOverview() {
       return request('GET', '/api/interfaces/overview/export');
+    },
+    async searchArp() {
+      return request('GET', '/api/diagnostics/interface/search_arp');
     }
   };
 }

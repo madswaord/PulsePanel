@@ -75,12 +75,23 @@ function parseDiskPayload(payload) {
 
 function parseWireguardPayload(payload) {
   const rows = Array.isArray(payload?.rows) ? payload.rows : [];
-  const peers = rows.filter((item) => item.type === 'peer');
-  const onlinePeers = peers.filter((item) => item['peer-status'] === 'online');
+  const peers = rows
+    .filter((item) => item.type === 'peer')
+    .map((item) => ({
+      name: item.name || item.ifname || 'Unnamed peer',
+      endpoint: item.endpoint || '(none)',
+      status: item['peer-status'] || 'unknown',
+      latestHandshakeAge: pickNumber(item['latest-handshake-age']),
+      latestHandshakeAt: item['latest-handshake-epoch'] || null,
+      transferRx: pickNumber(item['transfer-rx']) ?? 0,
+      transferTx: pickNumber(item['transfer-tx']) ?? 0
+    }));
+
+  const onlinePeers = peers.filter((item) => item.status === 'online');
 
   return {
     totalOnline: onlinePeers.length,
-    peers: onlinePeers
+    peers
   };
 }
 
@@ -145,6 +156,24 @@ function parseInterfacesPayload(payload) {
     txBytes: pickNumber(stats['bytes transmitted'], stats.bytesTransmitted, stats.txbytes),
     status: wan.status || 'unknown'
   };
+}
+
+function parseArpPayload(payload) {
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  const clients = rows
+    .filter((item) => item && !item.expired && !item.permanent)
+    .filter((item) => item.ip && item.mac)
+    .map((item) => ({
+      hostname: item.hostname || item.manufacturer || item.ip,
+      ip: item.ip,
+      mac: item.mac,
+      interface: item.intf_description || item.intf || 'unknown',
+      vendor: item.manufacturer || '',
+      lastSeen: nowTs() - Math.max(0, Math.min(1200, pickNumber(item.expires) ?? 0))
+    }));
+
+  clients.sort((a, b) => a.ip.localeCompare(b.ip, undefined, { numeric: true }));
+  return clients;
 }
 
 export function createOpnsenseProvider(opnsenseClient, logger) {
@@ -308,6 +337,19 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     }
   }
 
+  async function safeArpSearch() {
+    try {
+      const data = await opnsenseClient.searchArp();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense arp search failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
   async function collectWanSample() {
     const interfaces = await safeInterfacesOverview();
     if (!interfaces.ok) return null;
@@ -371,14 +413,15 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
 
     async getVpnOnline() {
       const wireguard = await safeWireguard();
-      const wg = wireguard.ok ? parseWireguardPayload(wireguard.data) : { totalOnline: 0 };
+      const wg = wireguard.ok ? parseWireguardPayload(wireguard.data) : { totalOnline: 0, peers: [] };
 
       return {
         totalOnline: wg.totalOnline,
         providers: {
           wireguard: wg.totalOnline,
           openvpn: 0
-        }
+        },
+        peers: wg.peers
       };
     },
 
@@ -439,9 +482,11 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getClientsOnline() {
+      const arp = await safeArpSearch();
+      const clients = arp.ok ? parseArpPayload(arp.data) : [];
       return {
-        totalOnline: 0,
-        clients: []
+        totalOnline: clients.length,
+        clients: clients.slice(0, 20)
       };
     },
 

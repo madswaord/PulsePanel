@@ -369,7 +369,7 @@
         <div class="client-card">
           <div class="client-main">
             <strong>${c.hostname}</strong>
-            <div class="client-meta">${c.ip} · 最近活跃 ${Math.max(1, Math.round(Date.now()/1000 - c.lastSeen))} 秒前</div>
+            <div class="client-meta">${c.ip} · ${c.interface || 'unknown'} · 最近活跃 ${Math.max(1, Math.round(Date.now()/1000 - c.lastSeen))} 秒前</div>
           </div>
           <div>${badge('在线', 'ok')}</div>
         </div>
@@ -379,11 +379,17 @@
     async function loadVpn() {
       const data = await fetchJSON('/dashboard/vpn/online');
       document.getElementById('vpn-total').textContent = data.totalOnline;
-      document.getElementById('vpn-list').innerHTML = [
+      const rows = [
         `<div class="row"><div><strong>总在线人数</strong><small>VPN 当前总在线</small></div><div class="tag ok">${data.totalOnline}</div></div>`,
         `<div class="row"><div><strong>WireGuard</strong><small>在线 Peer</small></div><div class="tag">${data.providers.wireguard}</div></div>`,
         `<div class="row"><div><strong>OpenVPN</strong><small>在线 Client</small></div><div class="tag warn">${data.providers.openvpn}</div></div>`
-      ].join('');
+      ];
+      (data.peers || []).slice(0, 4).forEach(peer => {
+        const statusType = peer.status === 'online' ? 'ok' : (peer.status === 'stale' ? 'warn' : 'dim');
+        const ageText = peer.latestHandshakeAge == null ? '无握手' : `${peer.latestHandshakeAge} 秒前`;
+        rows.push(`<div class="row"><div><strong>${peer.name}</strong><small>${peer.endpoint} · 最近握手 ${ageText}</small></div><div>${badge(peer.status, statusType)}</div></div>`);
+      });
+      document.getElementById('vpn-list').innerHTML = rows.join('');
     }
 
     async function boot() {
