@@ -71,6 +71,7 @@ export function createDeviceIdentityStore(projectRoot) {
         displayName,
         aliases: Array.from(new Set(aliases)),
         lastSeen: client.lastSeen,
+        firstSeen: existing.firstSeen || client.lastSeen,
         updatedAt: Math.floor(Date.now() / 1000)
       };
     }
