@@ -522,20 +522,23 @@
 
       document.getElementById('clients-list').innerHTML = sectionNames.length ? sectionNames.map(section => {
         const clients = groupedClients[section].slice().sort((a, b) => (a.lastSeen || 0) - (b.lastSeen || 0)).slice(0, 4);
-        const header = `<div class="row"><div><strong>${section}</strong><small>${groupedClients[section].length} 台在线设备</small></div><div>${badge(section, 'dim')}</div></div>`;
+        const header = `<div class="row"><div><strong>${section}</strong><small>${groupedClients[section].length} 台在线设备</small></div><div style="display:flex; gap:6px; align-items:center;">${badge(section, 'dim')}${badge('TOP', 'ok')}</div></div>`;
         const cards = clients.map(c => {
           const title = compactDeviceName(c);
-          const subtitle = [c.ip, c.vendor ? shortText(c.vendor, 18) : null].filter(Boolean).join(' · ');
+          const subtitle = [c.ip, c.hostname && c.hostname !== c.ip ? shortText(c.hostname, 16) : null].filter(Boolean).join(' · ');
+          const vendorLine = c.vendor ? shortText(c.vendor, 18) : '厂商待识别';
           const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
-          const aliasNote = (c.aliases || []).length ? ` · 别名 ${(c.aliases || []).slice(0, 1).join(', ')}` : '';
+          const aliasNote = (c.aliases || []).length ? `别名 ${c.aliases.slice(0, 1).join(', ')}` : '可用 alias 覆盖名称';
           return `
             <div class="client-card">
               <div class="client-main">
                 <strong>${title}</strong>
-                <div class="client-meta">${subtitle || c.ip}${aliasNote}</div>
+                <div class="client-meta">${subtitle || c.ip}</div>
+                <div class="client-meta">${vendorLine}</div>
+                <div class="client-meta">${aliasNote}</div>
                 <div class="client-meta">最近活跃 ${formatAge(age)} · 流量/速率待接入</div>
               </div>
-              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge('在线', 'ok')}</div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge('在线', 'ok')}${badge(c.interface || section, 'dim')}</div>
             </div>
           `;
         }).join('');
