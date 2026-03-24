@@ -2,49 +2,96 @@ function nowTs() {
   return Math.floor(Date.now() / 1000);
 }
 
-function parseSystemStatusProbe(probe) {
-  if (!probe || typeof probe !== 'object') {
+function pickNumber(...values) {
+  for (const value of values) {
+    if (typeof value === 'number' && !Number.isNaN(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value);
+  }
+  return null;
+}
+
+function parseSystemStatusPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
     return {
-      reachable: false,
       cpuPct: null,
       memoryPct: null,
-      diskPct: null
+      diskPct: null,
+      rawReachable: false
     };
   }
 
-  const lower = JSON.stringify(probe).toLowerCase();
+  const cpuPct = pickNumber(
+    payload.cpu,
+    payload.cpuPct,
+    payload.cpu_pct,
+    payload.system?.cpu,
+    payload.system?.cpuPct,
+    payload.status?.cpu
+  );
 
-  const cpuPct =
-    probe.cpu ??
-    probe.cpuPct ??
-    probe.cpu_pct ??
-    probe.system?.cpu ??
-    probe.system?.cpuPct ??
-    null;
+  const memoryPct = pickNumber(
+    payload.memory,
+    payload.memoryPct,
+    payload.memory_pct,
+    payload.mem,
+    payload.system?.memory,
+    payload.system?.memoryPct,
+    payload.status?.memory
+  );
 
-  const memoryPct =
-    probe.memory ??
-    probe.memoryPct ??
-    probe.memory_pct ??
-    probe.mem ??
-    probe.system?.memory ??
-    probe.system?.memoryPct ??
-    null;
-
-  const diskPct =
-    probe.disk ??
-    probe.diskPct ??
-    probe.disk_pct ??
-    probe.storage ??
-    probe.system?.disk ??
-    probe.system?.diskPct ??
-    null;
+  const diskPct = pickNumber(
+    payload.disk,
+    payload.diskPct,
+    payload.disk_pct,
+    payload.storage,
+    payload.system?.disk,
+    payload.system?.diskPct,
+    payload.status?.disk
+  );
 
   return {
-    reachable: !lower.includes('error'),
-    cpuPct: typeof cpuPct === 'number' ? cpuPct : null,
-    memoryPct: typeof memoryPct === 'number' ? memoryPct : null,
-    diskPct: typeof diskPct === 'number' ? diskPct : null
+    cpuPct,
+    memoryPct,
+    diskPct,
+    rawReachable: true
+  };
+}
+
+function parseGatewayStatusPayload(payload) {
+  if (!payload) {
+    return {
+      online: false,
+      latencyMs: null,
+      packetLossPct: null,
+      statusText: 'unreachable'
+    };
+  }
+
+  const latencyMs = pickNumber(
+    payload.delay,
+    payload.latency,
+    payload.average,
+    payload.avg,
+    payload.rtt
+  );
+
+  const packetLossPct = pickNumber(
+    payload.loss,
+    payload.packetloss,
+    payload.packetLoss,
+    payload.lossPct
+  );
+
+  const statusText =
+    payload.status ||
+    payload.gateway_status ||
+    (payload.online === true ? 'online' : 'reachable');
+
+  return {
+    online: true,
+    latencyMs,
+    packetLossPct,
+    statusText
   };
 }
 
@@ -59,6 +106,32 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
         details: error.details || null
       });
       return { reachable: false, data: null, error };
+    }
+  }
+
+  async function safeSystemStatus() {
+    try {
+      const data = await opnsenseClient.getSystemStatus();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense system status failed, fallback to probe', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
+  async function safeGatewayStatus() {
+    try {
+      const data = await opnsenseClient.getGatewayStatus();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense gateway status failed, fallback to probe', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
     }
   }
 
@@ -93,6 +166,11 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getWanStatus() {
+      const gateway = await safeGatewayStatus();
+      if (gateway.ok) {
+        return parseGatewayStatusPayload(gateway.data);
+      }
+
       const probe = await safeProbe();
       return {
         online: probe.reachable,
@@ -113,8 +191,19 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getSystemHealth() {
+      const systemStatus = await safeSystemStatus();
+      if (systemStatus.ok) {
+        const parsed = parseSystemStatusPayload(systemStatus.data);
+        return {
+          cpuPct: parsed.cpuPct,
+          memoryPct: parsed.memoryPct,
+          diskPct: parsed.diskPct,
+          status: parsed.rawReachable ? 'reachable' : 'unknown'
+        };
+      }
+
       const probe = await safeProbe();
-      const parsed = parseSystemStatusProbe(probe.data);
+      const parsed = parseSystemStatusPayload(probe.data);
       return {
         cpuPct: parsed.cpuPct,
         memoryPct: parsed.memoryPct,

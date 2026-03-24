@@ -69,6 +69,12 @@ export function createOpnsenseClient(config) {
     post: (path, body) => request('POST', path, body),
     async probe() {
       return request('GET', '/api/core/core/systemStatus');
+    },
+    async getSystemStatus() {
+      return request('GET', '/api/core/system/status');
+    },
+    async getGatewayStatus() {
+      return request('GET', '/api/routes/gateway/status');
     }
   };
 }
