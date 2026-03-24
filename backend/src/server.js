@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import { loadConfig, getConfigSummary } from './config.js';
+import { createOpnsenseClient } from './lib/opnsense-client.js';
+import { HttpError } from './lib/http-error.js';
 
-dotenv.config();
-
+const config = loadConfig();
 const app = express();
-const port = process.env.PORT || 8710;
+const port = config.app.port;
+const opnsenseClient = createOpnsenseClient(config);
 
 app.use(cors());
 app.use(express.json());
@@ -54,25 +56,40 @@ function mockOverview() {
 }
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'pulsepanel-backend', timestamp: nowTs() });
+  res.json({
+    ok: true,
+    service: 'pulsepanel-backend',
+    timestamp: nowTs(),
+    config: getConfigSummary(config)
+  });
 });
 
 app.get('/api/capabilities', (_req, res) => {
   res.json({
     timestamp: nowTs(),
+    mode: config.opnsense.baseUrl ? 'configured' : 'mock',
     features: {
       wan: true,
       vpn: true,
       firewall: true,
       dns: true,
-      caddyAccess: false,
+      caddyAccess: config.features.enableCaddyLogs,
       topTalkers: false,
-      dnsStream: false
+      dnsStream: config.features.enableDnsLogs
     },
     providers: {
-      traffic: process.env.TRAFFIC_PROVIDER || 'core'
+      traffic: config.features.trafficProvider
     }
   });
+});
+
+app.get('/api/opnsense/probe', async (_req, res, next) => {
+  try {
+    const data = await opnsenseClient.probe();
+    res.json({ ok: true, timestamp: nowTs(), data });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/dashboard/overview', (_req, res) => {
@@ -123,6 +140,16 @@ app.get('/api/dashboard/firewall/states', (_req, res) => {
 
 app.get('/api/dashboard/system/health', (_req, res) => {
   res.json(mockOverview().system);
+});
+
+app.use((error, _req, res, _next) => {
+  const status = error instanceof HttpError ? error.status : 500;
+  res.status(status).json({
+    ok: false,
+    error: error.message || '未知错误',
+    details: error.details || null,
+    timestamp: nowTs()
+  });
 });
 
 app.listen(port, () => {
