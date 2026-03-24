@@ -21,16 +21,18 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
+  const configSummary = getConfigSummary(config);
   res.json({
     ok: true,
     service: 'pulsepanel-backend',
     timestamp: nowTs(),
-    config: getConfigSummary(config),
+    config: configSummary,
     mode: dashboardService.mode
   });
 });
 
 app.get('/api/capabilities', (_req, res) => {
+  const configSummary = getConfigSummary(config);
   res.json({
     timestamp: nowTs(),
     mode: dashboardService.mode,
@@ -45,7 +47,8 @@ app.get('/api/capabilities', (_req, res) => {
     },
     providers: {
       traffic: config.features.trafficProvider
-    }
+    },
+    validation: configSummary.validation
   });
 });
 

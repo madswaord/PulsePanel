@@ -60,15 +60,24 @@
     .system-banner {
       margin-bottom: 16px;
       display:flex;
-      justify-content:space-between;
-      align-items:center;
+      flex-direction:column;
       gap:12px;
       padding:14px 18px;
       border-radius:18px;
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.08);
     }
+    .system-banner-top {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
     .system-banner strong { font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
+    .banner-notes { display:flex; flex-direction:column; gap:8px; }
+    .banner-note { padding:10px 12px; border-radius:12px; font-size:13px; }
+    .banner-note.warn { background:rgba(255,159,67,0.10); color:var(--orange); }
+    .banner-note.err { background:rgba(255,77,109,0.10); color:var(--red); }
     .chart-wrap { height: 280px; display:flex; flex-direction:column; gap:10px; }
     .chart-meta { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:13px; }
     .chart-meta strong { color: var(--text); font-size: 16px; }
@@ -108,7 +117,7 @@
       .grid-top { grid-template-columns: 1fr; }
       .brand h1 { font-size: 30px; }
       .topbar { flex-direction:column; align-items:start; gap:12px; }
-      .system-banner { flex-direction: column; align-items: start; }
+      .system-banner-top { flex-direction: column; align-items: start; }
     }
   </style>
 </head>
@@ -123,11 +132,14 @@
     </div>
 
     <div class="system-banner">
-      <div>
-        <strong>接入状态</strong>
-        <div class="sub" id="integration-text">正在检查后端与 OPNsense 接入情况…</div>
+      <div class="system-banner-top">
+        <div>
+          <strong>接入状态</strong>
+          <div class="sub" id="integration-text">正在检查后端与 OPNsense 接入情况…</div>
+        </div>
+        <div id="integration-badges"></div>
       </div>
-      <div id="integration-badges"></div>
+      <div class="banner-notes" id="integration-notes"></div>
     </div>
 
     <section class="grid-top" id="overview-cards"></section>
@@ -278,6 +290,7 @@
         fetchJSON('/capabilities')
       ]);
 
+      const validation = capabilities.validation || health.config?.validation || {};
       const configured = health.config?.opnsense?.configured;
       const mode = capabilities.mode;
       const verifyTls = health.config?.opnsense?.verifyTls;
@@ -296,6 +309,11 @@
         badge(configured ? '配置完整' : '配置未完成', configured ? 'ok' : 'err'),
         badge(`流量源：${capabilities.providers.traffic}`, 'warn')
       ].join(' ');
+
+      const notes = [];
+      (validation.errors || []).forEach(msg => notes.push(`<div class="banner-note err">错误：${msg}</div>`));
+      (validation.warnings || []).forEach(msg => notes.push(`<div class="banner-note warn">提示：${msg}</div>`));
+      document.getElementById('integration-notes').innerHTML = notes.join('');
     }
 
     async function loadOverview() {
