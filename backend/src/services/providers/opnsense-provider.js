@@ -176,6 +176,29 @@ function parseArpPayload(payload) {
   return clients;
 }
 
+function parseServicesPayload(payload) {
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  const wanted = [
+    'caddy',
+    'dnsmasq',
+    'dhcpd',
+    'cron',
+    'configd',
+    'pf',
+    'webgui'
+  ];
+
+  const services = rows
+    .filter((item) => wanted.includes(item.id))
+    .map((item) => ({
+      id: item.id,
+      name: item.description || item.name || item.id,
+      running: item.running === 1 || item.running === true
+    }));
+
+  return services;
+}
+
 export function createOpnsenseProvider(opnsenseClient, logger) {
   const wanSamples = [];
 
@@ -350,6 +373,19 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     }
   }
 
+  async function safeServiceSearch() {
+    try {
+      const data = await opnsenseClient.searchServices();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense service search failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
   async function collectWanSample() {
     const interfaces = await safeInterfacesOverview();
     if (!interfaces.ok) return null;
@@ -426,11 +462,12 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getSystemHealth() {
-      const [systemStatus, resources, disk, cpu] = await Promise.all([
+      const [systemStatus, resources, disk, cpu, services] = await Promise.all([
         safeSystemStatus(),
         safeSystemResources(),
         safeSystemDisk(),
-        safeCpuStream()
+        safeCpuStream(),
+        safeServiceSearch()
       ]);
 
       if (systemStatus.ok) {
@@ -446,7 +483,8 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
             cpu.ok ? 'cpu_stream' : null,
             resources.ok ? 'system_resources' : null,
             disk.ok ? 'system_disk' : null
-          ].filter(Boolean).join('+') || 'system_status_basic'
+          ].filter(Boolean).join('+') || 'system_status_basic',
+          services: services.ok ? parseServicesPayload(services.data) : []
         };
       }
 
@@ -459,7 +497,8 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
         status: probe.reachable ? 'reachable' : 'unreachable',
         statusText: parsed.statusText,
         message: parsed.message,
-        metricsSource: 'probe_fallback'
+        metricsSource: 'probe_fallback',
+        services: services.ok ? parseServicesPayload(services.data) : []
       };
     },
 

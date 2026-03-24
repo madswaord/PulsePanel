@@ -198,6 +198,9 @@ export function createOpnsenseClient(config) {
     },
     async searchArp() {
       return request('GET', '/api/diagnostics/interface/search_arp');
+    },
+    async searchServices() {
+      return request('GET', '/api/core/service/search');
     }
   };
 }
