@@ -183,7 +183,48 @@ http://0.0.0.0:8711
 
 ---
 
-## 4.4 做成 systemd 自启动服务（推荐）
+## 4.4 设备别名（可选，但强烈推荐）
+
+如果你希望在线终端显示成你真正认识的名字，而不是厂商名/自动识别名，可以在本地维护一个别名文件。
+
+文件位置：
+
+```text
+backend/data/device-aliases.json
+```
+
+你可以先复制示例：
+
+```bash
+cp backend/data/device-aliases.example.json backend/data/device-aliases.json
+```
+
+格式示例：
+
+```json
+{
+  "bc:24:11:e6:40:52": "Proxmox-1",
+  "6c:4a:85:23:8b:35": "iPhone",
+  "f8:6f:b0:1c:01:fa": "AP-客厅"
+}
+```
+
+说明：
+- key 是设备的 **MAC 地址**（建议小写）
+- value 是你希望页面显示的名称
+
+生效规则：
+1. PulsePanel 先从在线设备里识别 MAC
+2. 再读取 `device-aliases.json`
+3. 如果命中别名，页面优先显示这个名称
+
+如果你改了别名文件：
+- 一般刷新页面后就能看到
+- 如果后端已缓存旧身份，可重启 backend 让显示更快同步
+
+---
+
+## 4.5 做成 systemd 自启动服务（推荐）
 
 如果你希望机器重启后自动起来，最推荐用 `systemd`。
 
