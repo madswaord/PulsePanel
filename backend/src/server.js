@@ -140,8 +140,8 @@ app.use((error, _req, res, _next) => {
   });
 });
 
-app.listen(port, () => {
-  logger.info(`PulsePanel backend listening on :${port}`, {
+app.listen(port, '0.0.0.0', () => {
+  logger.info(`PulsePanel backend listening on 0.0.0.0:${port}`, {
     mode: dashboardService.mode,
     baseUrl: config.opnsense.baseUrl || null
   });
