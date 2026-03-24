@@ -1,4 +1,21 @@
-export function createOpnsenseProvider(opnsenseClient) {
+function nowTs() {
+  return Math.floor(Date.now() / 1000);
+}
+
+export function createOpnsenseProvider(opnsenseClient, logger) {
+  async function safeProbe() {
+    try {
+      const data = await opnsenseClient.probe();
+      return { reachable: true, data };
+    } catch (error) {
+      logger.warn('OPNsense probe failed, provider will return fallback data', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { reachable: false, data: null, error };
+    }
+  }
+
   return {
     async getOverview() {
       const [wan, vpn, system] = await Promise.all([
@@ -8,7 +25,7 @@ export function createOpnsenseProvider(opnsenseClient) {
       ]);
 
       return {
-        timestamp: Math.floor(Date.now() / 1000),
+        timestamp: nowTs(),
         wan,
         throughput: {
           downloadBps: 0,
@@ -30,12 +47,12 @@ export function createOpnsenseProvider(opnsenseClient) {
     },
 
     async getWanStatus() {
-      // 第一阶段先返回占位结构，下一步再映射真实 OPNsense endpoint
+      const probe = await safeProbe();
       return {
-        online: true,
+        online: probe.reachable,
         latencyMs: null,
         packetLossPct: null,
-        statusText: 'connected'
+        statusText: probe.reachable ? 'reachable' : 'unreachable'
       };
     },
 
@@ -50,12 +67,12 @@ export function createOpnsenseProvider(opnsenseClient) {
     },
 
     async getSystemHealth() {
-      const probe = await opnsenseClient.probe();
+      const probe = await safeProbe();
       return {
         cpuPct: null,
         memoryPct: null,
         diskPct: null,
-        status: probe ? 'reachable' : 'unknown'
+        status: probe.reachable ? 'reachable' : 'unreachable'
       };
     },
 

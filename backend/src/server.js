@@ -3,13 +3,15 @@ import cors from 'cors';
 import { loadConfig, getConfigSummary } from './config.js';
 import { createOpnsenseClient } from './lib/opnsense-client.js';
 import { HttpError } from './lib/http-error.js';
+import { createLogger } from './lib/logger.js';
 import { createDashboardService } from './services/dashboard-service.js';
 
 const config = loadConfig();
+const logger = createLogger('PulsePanel');
 const app = express();
 const port = config.app.port;
 const opnsenseClient = createOpnsenseClient(config);
-const dashboardService = createDashboardService({ config, opnsenseClient });
+const dashboardService = createDashboardService({ config, opnsenseClient, logger });
 
 function nowTs() {
   return Math.floor(Date.now() / 1000);
@@ -122,6 +124,11 @@ app.get('/api/dashboard/system/health', async (_req, res, next) => {
 
 app.use((error, _req, res, _next) => {
   const status = error instanceof HttpError ? error.status : 500;
+  logger.error('Request failed', {
+    status,
+    message: error.message,
+    details: error.details || null
+  });
   res.status(status).json({
     ok: false,
     error: error.message || '未知错误',
@@ -131,5 +138,8 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log(`PulsePanel backend listening on :${port}`);
+  logger.info(`PulsePanel backend listening on :${port}`, {
+    mode: dashboardService.mode,
+    baseUrl: config.opnsense.baseUrl || null
+  });
 });
