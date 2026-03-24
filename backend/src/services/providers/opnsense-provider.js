@@ -226,7 +226,7 @@ function parseServicesPayload(payload) {
   return services;
 }
 
-export function createOpnsenseProvider(opnsenseClient, logger) {
+export function createOpnsenseProvider(opnsenseClient, logger, deviceIdentityStore) {
   const wanSamples = [];
 
   function pushWanSample(sample) {
@@ -610,7 +610,11 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
 
     async getClientsOnline() {
       const arp = await safeArpSearch();
-      const clients = arp.ok ? parseArpPayload(arp.data) : [];
+      const rawClients = arp.ok ? parseArpPayload(arp.data) : [];
+      if (deviceIdentityStore) {
+        deviceIdentityStore.updateFromClients(rawClients);
+      }
+      const clients = deviceIdentityStore ? deviceIdentityStore.enrichClients(rawClients) : rawClients;
       const groups = clients.reduce((acc, client) => {
         const key = client.interface || 'unknown';
         acc[key] = (acc[key] || 0) + 1;

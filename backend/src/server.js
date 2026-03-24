@@ -5,13 +5,16 @@ import { createOpnsenseClient } from './lib/opnsense-client.js';
 import { HttpError } from './lib/http-error.js';
 import { createLogger } from './lib/logger.js';
 import { createDashboardService } from './services/dashboard-service.js';
+import { createDeviceIdentityStore } from './services/device-identity.js';
 
 const config = loadConfig();
 const logger = createLogger('PulsePanel');
 const app = express();
 const port = config.app.port;
 const opnsenseClient = createOpnsenseClient(config);
-const dashboardService = createDashboardService({ config, opnsenseClient, logger });
+const projectRoot = config.runtime.envPath.replace(/\/\.env$/, '');
+const deviceIdentityStore = createDeviceIdentityStore(projectRoot);
+const dashboardService = createDashboardService({ config, opnsenseClient, logger, deviceIdentityStore });
 
 function nowTs() {
   return Math.floor(Date.now() / 1000);

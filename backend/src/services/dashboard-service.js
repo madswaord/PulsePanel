@@ -9,10 +9,10 @@ function isOpnsenseConfigured(config) {
   );
 }
 
-export function createDashboardService({ config, opnsenseClient, logger }) {
+export function createDashboardService({ config, opnsenseClient, logger, deviceIdentityStore }) {
   const mode = isOpnsenseConfigured(config) ? 'opnsense' : 'mock';
   const provider = mode === 'opnsense'
-    ? createOpnsenseProvider(opnsenseClient, logger)
+    ? createOpnsenseProvider(opnsenseClient, logger, deviceIdentityStore)
     : createMockProvider();
 
   logger.info('Dashboard service initialized', {
