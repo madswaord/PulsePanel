@@ -545,9 +545,9 @@
                 <div class="client-primary"><strong>${title}</strong>${aliasBadge}${roleBadge}</div>
                 <div class="client-meta">${subtitle || c.ip}</div>
                 <div class="client-meta">厂商 ${vendorLine}</div>
+                <div class="client-meta">${aliasNote}</div>
                 ${tagBadges ? `<div class="client-meta">${tagBadges}</div>` : ''}
                 ${notesLine}
-                <div class="client-meta">${aliasNote}</div>
                 <div class="client-meta">最近活跃 ${formatAge(age)}</div>
                 <div class="client-traffic">${badge('下载 --', 'dim')}${badge('上传 --', 'dim')}${badge('速率待接入', 'warn')}</div>
               </div>
