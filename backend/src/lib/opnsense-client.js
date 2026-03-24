@@ -1,4 +1,5 @@
 import { HttpError } from './http-error.js';
+import https from 'node:https';
 
 function buildAuthHeader(apiKey, apiSecret) {
   const token = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
@@ -17,6 +18,7 @@ async function parseJsonSafe(response) {
 
 export function createOpnsenseClient(config) {
   const { baseUrl, apiKey, apiSecret, verifyTls, timeoutMs } = config.opnsense;
+  const httpsAgent = new https.Agent({ rejectUnauthorized: verifyTls });
 
   async function request(method, path, body) {
     if (!baseUrl || !apiKey || !apiSecret) {
@@ -25,7 +27,6 @@ export function createOpnsenseClient(config) {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-
     const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
 
     try {
@@ -38,7 +39,7 @@ export function createOpnsenseClient(config) {
         },
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
-        dispatcher: undefined
+        agent: parsedUrl => parsedUrl.protocol === 'https:' ? httpsAgent : undefined
       });
 
       const data = await parseJsonSafe(response);
