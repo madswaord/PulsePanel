@@ -546,9 +546,9 @@
           </div>
           <div class="overview-shell">
             ${overviewBlock('DNS 总览', overview.server_name || 'SmartDNS', [
+              `运行状态 ${overview.is_process_suspended ? '暂停' : '运行中'}`,
               `数据库 ${overview.database_size ?? '--'}`,
-              `可用空间 ${overview.free_disk_space ?? '--'}`,
-              `运行状态 ${overview.is_process_suspended ? '暂停' : '运行中'}`
+              `可用空间 ${overview.free_disk_space ?? '--'}`
             ], [badge('Overview', 'ok')])}
             ${overviewBlock('Top Clients', clientText || '暂无', (Array.isArray(clientItems) ? clientItems.slice(0, 3).map(item => `${item.client_ip || item.ip} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Clients', 'warn')])}
             ${overviewBlock('Top Domains', domainText || '暂无', (Array.isArray(domainItems) ? domainItems.slice(0, 3).map(item => `${item.domain || item.name} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Domains', 'warn')])}
