@@ -536,7 +536,7 @@
           <div class="section-head">
             <div>
               <h3>DNS 专题区</h3>
-              <div class="sub">SmartDNS 总览、Top Clients 与 Top Domains</div>
+              <div class="sub">SmartDNS 实时概览、热门客户端、热门域名与请求流</div>
             </div>
             <div>${badge('SmartDNS', 'ok')}</div>
           </div>
@@ -546,18 +546,9 @@
               `可用空间 ${overview.free_disk_space ?? '--'}`,
               `运行状态 ${overview.is_process_suspended ? '暂停' : '运行中'}`
             ], [badge('Overview', 'ok')])}
-            ${overviewBlock('Top Clients', clientText || '暂无', [
-              '基于 SmartDNS 统计',
-              '后续可继续联动终端面板'
-            ], [badge('Top', 'warn')])}
-            ${overviewBlock('Top Domains', domainText || '暂无', [
-              '热门域名排行入口',
-              '后续可接地图可视化'
-            ], [badge('Top', 'warn')])}
-            ${overviewBlock('请求流', logText || '暂无', [
-              '滚动 DNS 请求入口',
-              '下一步可做实时流与地图'
-            ], [badge('Log', 'ok')])}
+            ${overviewBlock('Top Clients', clientText || '暂无', (Array.isArray(clientItems) ? clientItems.slice(0, 3).map(item => `${item.client_ip || item.ip} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Top', 'warn')])}
+            ${overviewBlock('Top Domains', domainText || '暂无', (Array.isArray(domainItems) ? domainItems.slice(0, 3).map(item => `${item.domain || item.name} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Top', 'warn')])}
+            ${overviewBlock('请求流', logText || '暂无', (Array.isArray(logItems) ? logItems.slice(0, 3).map(item => `${item.client || '--'} · ${item.domain || item.request_domain || '--'}`) : ['暂无']).slice(0,3), [badge('Log', 'ok')])}
           </div>
         `;
       } catch (err) {
