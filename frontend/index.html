@@ -65,6 +65,7 @@
     .overview-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
     .overview-meta { display:flex; flex-wrap:wrap; gap:8px; }
     .overview-lines { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:13px; line-height:1.45; }
+    .flow-list { display:flex; flex-direction:column; gap:6px; max-height:120px; overflow:hidden; }
     .overview-lines strong { color:var(--text); font-size:13px; }
     .section-note { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 4px 0 12px; }
     .overview-card.primary { border-color: rgba(0,229,255,0.28); box-shadow: 0 24px 80px rgba(0, 229, 255, 0.08); }
@@ -548,7 +549,16 @@
             ], [badge('Overview', 'ok')])}
             ${overviewBlock('Top Clients', clientText || '暂无', (Array.isArray(clientItems) ? clientItems.slice(0, 3).map(item => `${item.client_ip || item.ip} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Top', 'warn')])}
             ${overviewBlock('Top Domains', domainText || '暂无', (Array.isArray(domainItems) ? domainItems.slice(0, 3).map(item => `${item.domain || item.name} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Top', 'warn')])}
-            ${overviewBlock('请求流', logText || '暂无', (Array.isArray(logItems) ? logItems.slice(0, 6).map(item => `${item.client || '--'} · ${item.domain || item.request_domain || '--'}`) : ['暂无']).slice(0,6), [badge('Log', 'ok')])}
+            <div class="overview-block">
+              <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+                <div>
+                  <h4>请求流</h4>
+                  <div class="mini">${logText || '暂无'}</div>
+                </div>
+                <div class="overview-meta">${badge('Log', 'ok')}</div>
+              </div>
+              <div class="flow-list">${(Array.isArray(logItems) ? logItems.slice(0, 6).map(item => `<div class="line">${item.client || '--'} · ${item.domain || item.request_domain || '--'}</div>`) : ['<div class="line">暂无</div>']).join('')}</div>
+            </div>
           </div>
         `;
       } catch (err) {
