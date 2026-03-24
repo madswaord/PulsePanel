@@ -54,6 +54,20 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .tag { padding:4px 8px; border-radius:999px; background:rgba(0,229,255,0.08); color:var(--cyan); font-size:12px; }
     .tag.warn { background:rgba(255,159,67,0.12); color:var(--orange); }
+    .tag.ok { background:rgba(0,255,179,0.10); color:var(--green); }
+    .tag.err { background:rgba(255,77,109,0.10); color:var(--red); }
+    .system-banner {
+      margin-bottom: 16px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:14px 18px;
+      border-radius:18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .system-banner strong { font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
     @media (max-width: 1280px) {
       .grid-top { grid-template-columns: repeat(3, 1fr); }
       .grid-main, .grid-bottom { grid-template-columns: 1fr; }
@@ -62,6 +76,7 @@
       .grid-top { grid-template-columns: 1fr; }
       .brand h1 { font-size: 30px; }
       .topbar { flex-direction:column; align-items:start; gap:12px; }
+      .system-banner { flex-direction: column; align-items: start; }
     }
   </style>
 </head>
@@ -73,6 +88,14 @@
         <p>OPNsense 实时态势面板 · 新潮科技风网络控制台</p>
       </div>
       <div><span class="status-dot"></span><span id="clock">--</span></div>
+    </div>
+
+    <div class="system-banner">
+      <div>
+        <strong>接入状态</strong>
+        <div class="sub" id="integration-text">正在检查后端与 OPNsense 接入情况…</div>
+      </div>
+      <div id="integration-badges"></div>
     </div>
 
     <section class="grid-top" id="overview-cards"></section>
@@ -122,10 +145,40 @@
       return `<div class="panel"><h3>${title}</h3><div class="metric">${value}</div><div class="sub">${sub || ''}</div></div>`;
     }
 
+    function badge(text, type = '') {
+      return `<span class="tag ${type}">${text}</span>`;
+    }
+
+    async function loadIntegrationStatus() {
+      const [health, capabilities] = await Promise.all([
+        fetchJSON('/health'),
+        fetchJSON('/capabilities')
+      ]);
+
+      const configured = health.config?.opnsense?.configured;
+      const mode = capabilities.mode;
+      const verifyTls = health.config?.opnsense?.verifyTls;
+      const baseUrl = health.config?.opnsense?.baseUrl || '未配置';
+
+      let text = '';
+      if (mode === 'mock') {
+        text = `当前运行在 Mock 模式，尚未接入真实 OPNsense。目标地址：${baseUrl}`;
+      } else {
+        text = `后端已进入 OPNsense 模式。目标地址：${baseUrl} · TLS 校验：${verifyTls ? '开启' : '关闭'}`;
+      }
+
+      document.getElementById('integration-text').textContent = text;
+      document.getElementById('integration-badges').innerHTML = [
+        badge(`模式：${mode}`, mode === 'mock' ? 'warn' : 'ok'),
+        badge(configured ? '配置完整' : '配置未完成', configured ? 'ok' : 'err'),
+        badge(`流量源：${capabilities.providers.traffic}`, 'warn')
+      ].join(' ');
+    }
+
     async function loadOverview() {
       const data = await fetchJSON('/dashboard/overview');
       document.getElementById('overview-cards').innerHTML = [
-        card('WAN 链路', data.wan.online ? '在线' : '离线', `延迟 ${data.wan.latencyMs} ms · 丢包 ${data.wan.packetLossPct}%`),
+        card('WAN 链路', data.wan.online ? '在线' : '离线', `状态 ${data.wan.statusText} · 延迟 ${data.wan.latencyMs ?? '--'} ms`),
         card('总下载', data.throughput.downloadHuman, '当前下行速率'),
         card('总上传', data.throughput.uploadHuman, '当前上行速率'),
         card('防火墙', data.firewall.activeStates, `最近 1 分钟 Block ${data.firewall.blockedLastMinute}`),
@@ -133,11 +186,17 @@
         card('DNS 脉冲', `${data.dns.qps} QPS`, data.dns.status)
       ].join('');
 
+      const systemStatusTag = data.system.status === 'reachable'
+        ? '<span class="tag ok">已接入</span>'
+        : data.system.status === 'unreachable'
+          ? '<span class="tag err">不可达</span>'
+          : '<span class="tag warn">模拟中</span>';
+
       document.getElementById('system-list').innerHTML = [
-        `<div class="row"><div>CPU<small>当前占用</small></div><div class="tag">${data.system.cpuPct}%</div></div>`,
-        `<div class="row"><div>内存<small>当前占用</small></div><div class="tag">${data.system.memoryPct}%</div></div>`,
-        `<div class="row"><div>磁盘<small>当前占用</small></div><div class="tag warn">${data.system.diskPct}%</div></div>`,
-        `<div class="row"><div>整体状态<small>系统健康</small></div><div class="tag">${data.system.status}</div></div>`
+        `<div class="row"><div>CPU<small>当前占用</small></div><div class="tag">${data.system.cpuPct ?? '--'}${data.system.cpuPct != null ? '%' : ''}</div></div>`,
+        `<div class="row"><div>内存<small>当前占用</small></div><div class="tag">${data.system.memoryPct ?? '--'}${data.system.memoryPct != null ? '%' : ''}</div></div>`,
+        `<div class="row"><div>磁盘<small>当前占用</small></div><div class="tag warn">${data.system.diskPct ?? '--'}${data.system.diskPct != null ? '%' : ''}</div></div>`,
+        `<div class="row"><div>整体状态<small>系统健康</small></div><div>${systemStatusTag}</div></div>`
       ].join('');
     }
 
@@ -165,9 +224,11 @@
 
     async function boot() {
       try {
-        await Promise.all([loadOverview(), loadClients(), loadVpn()]);
+        await Promise.all([loadIntegrationStatus(), loadOverview(), loadClients(), loadVpn()]);
       } catch (err) {
         console.error(err);
+        document.getElementById('integration-text').textContent = '前后端通信失败，请检查 PulsePanel 服务状态。';
+        document.getElementById('integration-badges').innerHTML = badge('通信失败', 'err');
       }
     }
     boot();
