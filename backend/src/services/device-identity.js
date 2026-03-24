@@ -12,6 +12,8 @@ function normalizeMac(mac) {
 export function createDeviceIdentityStore(projectRoot) {
   const dataDir = path.join(projectRoot, 'backend', 'data');
   const filePath = path.join(dataDir, 'devices.json');
+  const aliasPath = path.join(dataDir, 'device-aliases.json');
+  const aliasExamplePath = path.join(dataDir, 'device-aliases.example.json');
   ensureDir(dataDir);
 
   function load() {
@@ -26,9 +28,18 @@ export function createDeviceIdentityStore(projectRoot) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
   }
 
+  function loadAliases() {
+    try {
+      return JSON.parse(fs.readFileSync(aliasPath, 'utf8'));
+    } catch {
+      return {};
+    }
+  }
+
   function updateFromClients(clients) {
     const db = load();
     const devices = db.devices || {};
+    const aliasMap = loadAliases();
 
     for (const client of clients) {
       const mac = normalizeMac(client.mac);
@@ -37,8 +48,10 @@ export function createDeviceIdentityStore(projectRoot) {
         mac,
         aliases: []
       };
+      const manualAlias = aliasMap[mac] || null;
+      const aliases = [manualAlias, ...(existing.aliases || [])].filter(Boolean);
 
-      const displayName = existing.aliases?.[0]
+      const displayName = aliases[0]
         || (client.hostname && client.hostname !== client.ip ? client.hostname : null)
         || existing.displayName
         || client.vendor
@@ -52,6 +65,7 @@ export function createDeviceIdentityStore(projectRoot) {
         vendor: client.vendor || existing.vendor || '',
         hostname: client.hostname || existing.hostname || '',
         displayName,
+        aliases: Array.from(new Set(aliases)),
         lastSeen: client.lastSeen,
         updatedAt: Math.floor(Date.now() / 1000)
       };
@@ -78,6 +92,8 @@ export function createDeviceIdentityStore(projectRoot) {
 
   return {
     filePath,
+    aliasPath,
+    aliasExamplePath,
     updateFromClients,
     enrichClients,
     load
