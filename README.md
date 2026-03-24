@@ -235,6 +235,21 @@ cp backend/data/device-aliases.example.json backend/data/device-aliases.json
 backend/data/device-identity.template.json
 ```
 
+### 推荐维护顺序
+
+如果你现在准备开始整理设备资产，建议按这个顺序来：
+
+1. **先写 alias**
+   - 先把你最常看的设备改成你认得出来的名字
+2. **再补 role**
+   - 比如 `Phone` / `Server` / `AP` / `TV`
+3. **再补 tags**
+   - 比如 `重点设备` / `常驻` / `IoT`
+4. **最后写 notes**
+   - 只给真正需要说明的设备补备注
+
+这样维护成本最低，也最容易看到页面效果变化。
+
 生效规则：
 1. PulsePanel 先从在线设备里识别 MAC
 2. 再读取 `device-aliases.json`
