@@ -66,6 +66,8 @@
     .overview-meta { display:flex; flex-wrap:wrap; gap:8px; }
     .overview-lines { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:13px; line-height:1.45; }
     .flow-list { display:flex; flex-direction:column; gap:6px; max-height:120px; overflow:hidden; }
+    .flow-item { animation: pulseFade 6s linear infinite; }
+    @keyframes pulseFade { 0% { opacity: .45; transform: translateY(6px);} 15% { opacity: 1; transform: translateY(0);} 85% { opacity: 1; transform: translateY(0);} 100% { opacity: .45; transform: translateY(-6px);} }
     .overview-lines strong { color:var(--text); font-size:13px; }
     .section-note { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 4px 0 12px; }
     .overview-card.primary { border-color: rgba(0,229,255,0.28); box-shadow: 0 24px 80px rgba(0, 229, 255, 0.08); }
@@ -557,7 +559,7 @@
                 </div>
                 <div class="overview-meta">${badge('Log', 'ok')}</div>
               </div>
-              <div class="flow-list">${(Array.isArray(logItems) ? logItems.slice(0, 6).map(item => `<div class="line">${item.client || '--'} · ${item.domain || item.request_domain || '--'}</div>`) : ['<div class="line">暂无</div>']).join('')}</div>
+              <div class="flow-list">${(Array.isArray(logItems) ? logItems.slice(0, 6).map((item, idx) => `<div class="line flow-item" style="animation-delay:${idx * 0.35}s">${item.client || '--'} · ${item.domain || item.request_domain || '--'}</div>`) : ['<div class="line flow-item">暂无</div>']).join('')}</div>
             </div>
           </div>
         `;
