@@ -213,6 +213,22 @@ cp backend/data/device-aliases.example.json backend/data/device-aliases.json
 - key 是设备的 **MAC 地址**（建议小写）
 - value 是你希望页面显示的名称
 
+### 设备身份库里还能维护什么
+
+除了 alias 之外，设备身份层现在还保留这些字段：
+
+- `notes`：备注
+- `role`：设备角色
+- `tags`：标签数组
+- `firstSeen`：首次识别时间
+- `lastSeen`：最近活跃时间
+
+这些字段当前主要作为设备资产层的基础，后面可以继续用于：
+- 更清楚的终端展示
+- 资产分类
+- 重点设备标记
+- 角色识别
+
 生效规则：
 1. PulsePanel 先从在线设备里识别 MAC
 2. 再读取 `device-aliases.json`
