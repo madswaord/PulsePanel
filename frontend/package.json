@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "npx serve -s . -l 80"
+    "start": "npx serve -s . -l 8711"
   }
 }
