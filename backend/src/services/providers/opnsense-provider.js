@@ -5,7 +5,10 @@ function nowTs() {
 function pickNumber(...values) {
   for (const value of values) {
     if (typeof value === 'number' && !Number.isNaN(value)) return value;
-    if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value);
+    if (typeof value === 'string') {
+      const cleaned = value.replace(/[^0-9.\-]/g, '');
+      if (cleaned && !Number.isNaN(Number(cleaned))) return Number(cleaned);
+    }
   }
   return null;
 }
@@ -16,7 +19,9 @@ function parseSystemStatusPayload(payload) {
       cpuPct: null,
       memoryPct: null,
       diskPct: null,
-      rawReachable: false
+      rawReachable: false,
+      statusText: 'unknown',
+      message: 'No payload'
     };
   }
 
@@ -49,16 +54,21 @@ function parseSystemStatusPayload(payload) {
     payload.status?.disk
   );
 
+  const statusCode = payload.metadata?.system?.status ?? null;
+  const statusMessage = payload.metadata?.system?.message ?? 'System status available';
+
   return {
     cpuPct,
     memoryPct,
     diskPct,
-    rawReachable: true
+    rawReachable: true,
+    statusText: statusCode === 2 ? 'online' : 'reachable',
+    message: statusMessage
   };
 }
 
 function parseGatewayStatusPayload(payload) {
-  if (!payload) {
+  if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
     return {
       online: false,
       latencyMs: null,
@@ -67,28 +77,28 @@ function parseGatewayStatusPayload(payload) {
     };
   }
 
+  const primary = payload.items.find(item => item.name === 'WAN_GW') || payload.items[0];
+
   const latencyMs = pickNumber(
-    payload.delay,
-    payload.latency,
-    payload.average,
-    payload.avg,
-    payload.rtt
+    primary.delay,
+    primary.latency,
+    primary.average,
+    primary.avg,
+    primary.rtt
   );
 
   const packetLossPct = pickNumber(
-    payload.loss,
-    payload.packetloss,
-    payload.packetLoss,
-    payload.lossPct
+    primary.loss,
+    primary.packetloss,
+    primary.packetLoss,
+    primary.lossPct
   );
 
-  const statusText =
-    payload.status ||
-    payload.gateway_status ||
-    (payload.online === true ? 'online' : 'reachable');
+  const translated = primary.status_translated || '';
+  const statusText = translated ? translated.toLowerCase() : (primary.status || 'reachable');
 
   return {
-    online: true,
+    online: translated === 'Online' || primary.status === 'none' || primary.status === 'online',
     latencyMs,
     packetLossPct,
     statusText
@@ -198,7 +208,9 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
           cpuPct: parsed.cpuPct,
           memoryPct: parsed.memoryPct,
           diskPct: parsed.diskPct,
-          status: parsed.rawReachable ? 'reachable' : 'unknown'
+          status: parsed.rawReachable ? 'reachable' : 'unknown',
+          statusText: parsed.statusText,
+          message: parsed.message
         };
       }
 
@@ -208,7 +220,9 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
         cpuPct: parsed.cpuPct,
         memoryPct: parsed.memoryPct,
         diskPct: parsed.diskPct,
-        status: probe.reachable ? 'reachable' : 'unreachable'
+        status: probe.reachable ? 'reachable' : 'unreachable',
+        statusText: parsed.statusText,
+        message: parsed.message
       };
     },
 
