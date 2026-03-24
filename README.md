@@ -513,6 +513,12 @@ curl http://127.0.0.1:8710/api/opnsense/probe
 
 ---
 
+如果你后面要继续提高 OPNsense 接口权限，可以参考：
+
+```text
+docs/opnsense-api-permissions.md
+```
+
 # 9. 已知限制
 
 当前 OPNsense API 权限/接口限制下：
