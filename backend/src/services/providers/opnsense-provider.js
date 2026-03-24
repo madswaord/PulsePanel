@@ -146,24 +146,35 @@ function parseGatewayStatusPayload(payload) {
   };
 }
 
-function parseInterfacesPayload(payload) {
-  const rows = Array.isArray(payload) ? payload : [];
-  const wan = rows.find((item) => item.identifier === 'wan' || item.description === 'WAN')
-    || rows.find((item) => String(item.device || '').startsWith('pppoe'))
-    || rows[0];
-
-  if (!wan) return null;
-
-  const stats = wan.statistics || {};
+function normalizeWanInterface(item) {
+  const stats = item.statistics || {};
   return {
-    name: wan.description || wan.identifier || wan.device || 'WAN',
-    interface: wan.identifier || null,
-    device: wan.device || null,
-    ipAddress: (wan.addr4 || wan.addr6 || '').split('/')[0] || null,
-    gateways: Array.isArray(wan.gateways) ? wan.gateways : [],
+    name: item.description || item.identifier || item.device || 'WAN',
+    interface: item.identifier || null,
+    device: item.device || null,
+    ipv4: (item.addr4 || '').split('/')[0] || null,
+    ipv6: (item.addr6 || '').split('/')[0] || null,
+    gateways: Array.isArray(item.gateways) ? item.gateways : [],
     rxBytes: pickNumber(stats['bytes received'], stats.bytesReceived, stats.rxbytes),
     txBytes: pickNumber(stats['bytes transmitted'], stats.bytesTransmitted, stats.txbytes),
-    status: wan.status || 'unknown'
+    status: item.status || 'unknown'
+  };
+}
+
+function parseInterfacesPayload(payload) {
+  const rows = Array.isArray(payload) ? payload : [];
+  const wanCandidates = rows.filter((item) => item && (
+    item.identifier === 'wan'
+    || String(item.description || '').toUpperCase().includes('WAN')
+    || String(item.device || '').startsWith('pppoe')
+  ));
+
+  const wans = wanCandidates.map(normalizeWanInterface);
+  const primary = wans[0] || null;
+
+  return {
+    primary,
+    wans
   };
 }
 
@@ -402,18 +413,20 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     if (!interfaces.ok) return null;
 
     const parsed = parseInterfacesPayload(interfaces.data);
-    if (!parsed) return null;
+    const primary = parsed?.primary;
+    if (!primary) return null;
 
     const sample = {
       ts: nowTs(),
-      rxBytes: parsed.rxBytes ?? 0,
-      txBytes: parsed.txBytes ?? 0,
-      name: parsed.name,
-      interface: parsed.interface,
-      device: parsed.device,
-      ipAddress: parsed.ipAddress,
-      gateways: parsed.gateways,
-      status: parsed.status
+      rxBytes: primary.rxBytes ?? 0,
+      txBytes: primary.txBytes ?? 0,
+      name: primary.name,
+      interface: primary.interface,
+      device: primary.device,
+      ipv4: primary.ipv4,
+      ipv6: primary.ipv6,
+      gateways: primary.gateways,
+      status: primary.status
     };
     pushWanSample(sample);
     return sample;
@@ -456,20 +469,23 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
       ]);
       const parsedGateway = gateway.ok ? parseGatewayStatusPayload(gateway.data) : null;
       const parsedInterface = interfaces.ok ? parseInterfacesPayload(interfaces.data) : null;
+      const primary = parsedInterface?.primary;
 
-      if (parsedGateway || parsedInterface) {
+      if (parsedGateway || primary) {
         return {
-          online: parsedGateway ? parsedGateway.online : parsedInterface?.status === 'up',
+          online: parsedGateway ? parsedGateway.online : primary?.status === 'up',
           latencyMs: parsedGateway?.latencyMs ?? null,
           packetLossPct: parsedGateway?.packetLossPct ?? null,
-          statusText: parsedGateway?.statusText || parsedInterface?.status || 'reachable',
+          statusText: parsedGateway?.statusText || primary?.status || 'reachable',
           gatewayName: parsedGateway?.gatewayName ?? null,
-          gatewayAddress: parsedGateway?.gatewayAddress ?? parsedInterface?.gateways?.[0] ?? null,
+          gatewayAddress: parsedGateway?.gatewayAddress ?? primary?.gateways?.[0] ?? null,
           monitorIp: parsedGateway?.monitorIp ?? null,
-          interfaceName: parsedInterface?.name ?? null,
-          interfaceId: parsedInterface?.interface ?? null,
-          device: parsedInterface?.device ?? null,
-          publicIp: parsedInterface?.ipAddress ?? null
+          interfaceName: primary?.name ?? null,
+          interfaceId: primary?.interface ?? null,
+          device: primary?.device ?? null,
+          publicIp: primary?.ipv4 ?? null,
+          publicIpv6: primary?.ipv6 ?? null,
+          wans: parsedInterface?.wans || []
         };
       }
 
@@ -485,7 +501,9 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
         interfaceName: null,
         interfaceId: null,
         device: null,
-        publicIp: null
+        publicIp: null,
+        publicIpv6: null,
+        wans: []
       };
     },
 
