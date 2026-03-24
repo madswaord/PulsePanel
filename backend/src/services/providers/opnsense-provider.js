@@ -187,23 +187,25 @@ function parseArpPayload(payload) {
 
 function parseServicesPayload(payload) {
   const rows = Array.isArray(payload?.rows) ? payload.rows : [];
-  const wanted = [
-    'caddy',
+  const priority = [
+    'pf',
     'dnsmasq',
     'dhcpd',
-    'cron',
+    'webgui',
     'configd',
-    'pf',
-    'webgui'
+    'caddy',
+    'cron'
   ];
+  const rank = new Map(priority.map((id, idx) => [id, idx]));
 
   const services = rows
-    .filter((item) => wanted.includes(item.id))
+    .filter((item) => priority.includes(item.id))
     .map((item) => ({
       id: item.id,
       name: item.description || item.name || item.id,
       running: item.running === 1 || item.running === true
-    }));
+    }))
+    .sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999));
 
   return services;
 }
@@ -512,10 +514,26 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
 
       if (systemStatus.ok) {
         const parsed = parseSystemStatusPayload(systemStatus.data);
+        const cpuPct = cpu.ok ? parseCpuStreamPayload(cpu.data) : parsed.cpuPct;
+        const memoryPct = resources.ok ? parseMemoryPayload(resources.data) : parsed.memoryPct;
+        const diskPct = disk.ok ? parseDiskPayload(disk.data) : parsed.diskPct;
+        const serviceList = services.ok ? parseServicesPayload(services.data) : [];
+        const stoppedServices = serviceList.filter((item) => !item.running);
+        const summaryStatus = stoppedServices.length > 0
+          ? 'degraded'
+          : [cpuPct, memoryPct, diskPct].some((value) => value != null && value >= 85)
+            ? 'elevated'
+            : 'healthy';
+        const summaryText = stoppedServices.length > 0
+          ? `关键服务异常 ${stoppedServices.length} 个`
+          : summaryStatus === 'elevated'
+            ? '资源占用偏高'
+            : '运行正常';
+
         return {
-          cpuPct: cpu.ok ? parseCpuStreamPayload(cpu.data) : parsed.cpuPct,
-          memoryPct: resources.ok ? parseMemoryPayload(resources.data) : parsed.memoryPct,
-          diskPct: disk.ok ? parseDiskPayload(disk.data) : parsed.diskPct,
+          cpuPct,
+          memoryPct,
+          diskPct,
           status: parsed.rawReachable ? 'reachable' : 'unknown',
           statusText: parsed.statusText,
           message: parsed.message,
@@ -524,12 +542,16 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
             resources.ok ? 'system_resources' : null,
             disk.ok ? 'system_disk' : null
           ].filter(Boolean).join('+') || 'system_status_basic',
-          services: services.ok ? parseServicesPayload(services.data) : []
+          services: serviceList,
+          summaryStatus,
+          summaryText,
+          stoppedServices: stoppedServices.map((item) => item.id)
         };
       }
 
       const probe = await safeProbe();
       const parsed = parseSystemStatusPayload(probe.data);
+      const serviceList = services.ok ? parseServicesPayload(services.data) : [];
       return {
         cpuPct: null,
         memoryPct: null,
@@ -538,7 +560,10 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
         statusText: parsed.statusText,
         message: parsed.message,
         metricsSource: 'probe_fallback',
-        services: services.ok ? parseServicesPayload(services.data) : []
+        services: serviceList,
+        summaryStatus: probe.reachable ? 'degraded' : 'offline',
+        summaryText: probe.reachable ? '已接入，但仅有基础探测结果' : 'OPNsense 不可达',
+        stoppedServices: serviceList.filter((item) => !item.running).map((item) => item.id)
       };
     },
 

@@ -297,6 +297,14 @@
       return badge('模拟中', 'warn');
     }
 
+    function formatSummaryTag(status) {
+      if (status === 'healthy') return badge('运行正常', 'ok');
+      if (status === 'elevated') return badge('资源偏高', 'warn');
+      if (status === 'degraded') return badge('存在异常', 'err');
+      if (status === 'offline') return badge('已离线', 'err');
+      return badge('待确认', 'dim');
+    }
+
     function formatWanSub(wan) {
       const latency = wan.latencyMs == null ? '待映射' : `${wan.latencyMs} ms`;
       const loss = wan.packetLossPct == null ? '待映射' : `${wan.packetLossPct}%`;
@@ -356,16 +364,18 @@
       ].join('');
 
       const systemStatusTag = formatSystemStatusTag(data.system.status);
-      document.getElementById('system-status-badge').innerHTML = systemStatusTag;
+      const summaryTag = formatSummaryTag(data.system.summaryStatus);
+      document.getElementById('system-status-badge').innerHTML = summaryTag;
       const serviceRows = (data.system.services || []).slice(0, 4).map(service => {
         const tag = service.running ? badge('运行中', 'ok') : badge('未运行', 'err');
         return `<div class="row"><div><strong>${service.id}</strong><small>${service.name}</small></div><div>${tag}</div></div>`;
       });
       document.getElementById('system-list').innerHTML = [
+        `<div class="row"><div><strong>总览</strong><small>${data.system.summaryText || '待确认'}</small></div><div>${summaryTag}</div></div>`,
         `<div class="row"><div><strong>CPU</strong><small>${data.system.cpuPct == null ? '当前无权限或接口未提供' : `当前占用 ${data.system.cpuPct}%`}</small><div class="health-bar"><div class="health-fill fill-cpu" style="width:${data.system.cpuPct ?? 0}%"></div></div></div></div>`,
         `<div class="row"><div><strong>内存</strong><small>${data.system.memoryPct == null ? '当前无权限或接口未提供' : `当前占用 ${data.system.memoryPct}%`}</small><div class="health-bar"><div class="health-fill fill-mem" style="width:${data.system.memoryPct ?? 0}%"></div></div></div></div>`,
         `<div class="row"><div><strong>磁盘</strong><small>${data.system.diskPct == null ? '当前无权限或接口未提供' : `当前占用 ${data.system.diskPct}%`}</small><div class="health-bar"><div class="health-fill fill-disk" style="width:${data.system.diskPct ?? 0}%"></div></div></div></div>`,
-        `<div class="row"><div><strong>状态</strong><small>${data.system.status === 'reachable' ? `已连到真实 OPNsense · 来源 ${data.system.metricsSource || 'unknown'}` : data.system.status === 'unreachable' ? '后端已配置但 OPNsense 不可达' : data.system.status === 'unknown' ? '接口已尝试但字段仍待映射' : '当前使用模拟数据'}</small></div><div>${systemStatusTag}</div></div>`,
+        `<div class="row"><div><strong>接入状态</strong><small>${data.system.status === 'reachable' ? `已连到真实 OPNsense · 来源 ${data.system.metricsSource || 'unknown'}` : data.system.status === 'unreachable' ? '后端已配置但 OPNsense 不可达' : data.system.status === 'unknown' ? '接口已尝试但字段仍待映射' : '当前使用模拟数据'}</small></div><div>${systemStatusTag}</div></div>`,
         ...serviceRows
       ].join('');
     }
