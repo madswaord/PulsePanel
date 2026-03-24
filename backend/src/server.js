@@ -6,12 +6,14 @@ import { HttpError } from './lib/http-error.js';
 import { createLogger } from './lib/logger.js';
 import { createDashboardService } from './services/dashboard-service.js';
 import { createDeviceIdentityStore } from './services/device-identity.js';
+import { createSmartDnsClient } from './lib/smartdns-client.js';
 
 const config = loadConfig();
 const logger = createLogger('PulsePanel');
 const app = express();
 const port = config.app.port;
 const opnsenseClient = createOpnsenseClient(config);
+const smartdnsClient = createSmartDnsClient(config);
 const projectRoot = config.runtime.envPath.replace(/\/\.env$/, '');
 const deviceIdentityStore = createDeviceIdentityStore(projectRoot);
 const dashboardService = createDashboardService({ config, opnsenseClient, logger, deviceIdentityStore });
@@ -123,6 +125,30 @@ app.get('/api/dashboard/firewall/states', async (_req, res, next) => {
 app.get('/api/dashboard/system/health', async (_req, res, next) => {
   try {
     res.json(await dashboardService.getSystemHealth());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/smartdns/overview', async (_req, res, next) => {
+  try {
+    res.json(await smartdnsClient.getOverview());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/smartdns/top/clients', async (_req, res, next) => {
+  try {
+    res.json(await smartdnsClient.getTopClients());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/smartdns/top/domains', async (_req, res, next) => {
+  try {
+    res.json(await smartdnsClient.getTopDomains());
   } catch (error) {
     next(error);
   }

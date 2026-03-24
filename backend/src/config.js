@@ -38,6 +38,13 @@ export function loadConfig() {
       enableDnsLogs: toBool(process.env.ENABLE_DNS_LOGS, false),
       trafficProvider: process.env.TRAFFIC_PROVIDER || 'core'
     },
+    smartdns: {
+      enabled: toBool(process.env.SMARTDNS_ENABLED, false),
+      baseUrl: normalizeBaseUrl(process.env.SMARTDNS_BASE_URL || ''),
+      username: process.env.SMARTDNS_USERNAME || '',
+      password: process.env.SMARTDNS_PASSWORD || '',
+      timeoutMs: Number(process.env.SMARTDNS_TIMEOUT_MS || 5000)
+    },
     runtime: {
       envPath
     }
@@ -95,6 +102,10 @@ export function getConfigSummary(config) {
       timeoutMs: config.opnsense.timeoutMs
     },
     features: config.features,
+    smartdns: {
+      enabled: config.smartdns.enabled,
+      baseUrl: config.smartdns.baseUrl
+    },
     runtime: config.runtime,
     validation
   };
