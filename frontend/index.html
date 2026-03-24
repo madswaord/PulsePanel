@@ -536,12 +536,17 @@
           const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
           const aliasNote = (c.aliases || []).length ? `已配置别名 ${c.aliases.slice(0, 1).join(', ')}` : '可在 aliases 文件里自定义名称';
           const aliasBadge = (c.aliases || []).length ? badge('Alias', 'success') : badge('Auto', 'dim');
+          const roleBadge = c.role ? badge(c.role, 'warn') : '';
+          const tagBadges = (c.tags || []).slice(0, 2).map(tag => badge(tag, 'dim')).join(' ');
+          const notesLine = c.notes ? `<div class="client-meta">备注 ${shortText(c.notes, 20)}</div>` : '';
           return `
             <div class="client-card">
               <div class="client-main">
-                <div class="client-primary"><strong>${title}</strong>${aliasBadge}</div>
+                <div class="client-primary"><strong>${title}</strong>${aliasBadge}${roleBadge}</div>
                 <div class="client-meta">${subtitle || c.ip}</div>
                 <div class="client-meta">厂商 ${vendorLine}</div>
+                ${tagBadges ? `<div class="client-meta">${tagBadges}</div>` : ''}
+                ${notesLine}
                 <div class="client-meta">${aliasNote}</div>
                 <div class="client-meta">最近活跃 ${formatAge(age)}</div>
                 <div class="client-traffic">${badge('下载 --', 'dim')}${badge('上传 --', 'dim')}${badge('速率待接入', 'warn')}</div>
