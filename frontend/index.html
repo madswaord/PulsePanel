@@ -283,6 +283,25 @@
       return text.length > max ? `${text.slice(0, max)}…` : text;
     }
 
+    function compactDeviceName(client) {
+      const raw = client.hostname && client.hostname !== client.ip ? client.hostname : (client.vendor || client.ip || '未知设备');
+      const replacements = [
+        ['Proxmox Server Solutions GmbH', 'Proxmox'],
+        ['TP-LINK TECHNOLOGIES CO.,LTD.', 'TP-LINK'],
+        ['Apple, Inc.', 'Apple'],
+        ['Dell Inc.', 'Dell'],
+        ['FUJIAN STAR-NET COMMUNICATION CO.,LTD', 'STAR-NET'],
+        ['Beijing Xiaomi Mobile Software Co., Ltd', 'Xiaomi'],
+        ['Bouffalo Lab (Nanjing) Co., Ltd.', 'Bouffalo'],
+        ['SHENZHEN BILIAN ELECTRONIC CO.，LTD', 'Bilian']
+      ];
+      let name = raw;
+      replacements.forEach(([from, to]) => {
+        if (name === from) name = to;
+      });
+      return shortText(name.replace(/^Bouffalolab_/, 'BL-').replace(/^NPI/, 'HP-'), 18);
+    }
+
     function peerStatusRank(status) {
       if (status === 'online') return 0;
       if (status === 'stale') return 1;
@@ -485,23 +504,42 @@
       document.getElementById('clients-total').textContent = data.totalOnline;
       const groups = Object.entries(data.groups || {}).sort((a, b) => b[1] - a[1]);
       document.getElementById('clients-subtitle').textContent = groups.length
-        ? groups.map(([name, count]) => `${name} ${count}`).slice(0, 3).join(' · ')
+        ? groups.map(([name, count]) => `${name} ${count}`).slice(0, 4).join(' · ')
         : '当前活跃终端资产';
-      const clients = (data.clients || []).slice().sort((a, b) => (a.lastSeen || 0) - (b.lastSeen || 0)).slice(0, 8);
-      document.getElementById('clients-list').innerHTML = clients.length ? clients.map(c => {
-        const title = c.hostname && c.hostname !== c.ip ? shortText(c.hostname, 24) : shortText(c.vendor || c.ip, 24);
-        const subtitle = [c.ip, c.vendor ? shortText(c.vendor, 22) : null].filter(Boolean).join(' · ');
-        const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
-        return `
-          <div class="client-card">
-            <div class="client-main">
-              <strong>${title}</strong>
-              <div class="client-meta">${subtitle || c.ip}</div>
-              <div class="client-meta">最近活跃 ${formatAge(age)}</div>
+
+      const groupedClients = (data.clients || []).reduce((acc, client) => {
+        const key = client.interface || 'unknown';
+        (acc[key] ||= []).push(client);
+        return acc;
+      }, {});
+
+      const order = ['LAN', 'iot', 'guest'];
+      const sectionNames = Object.keys(groupedClients).sort((a, b) => {
+        const ai = order.indexOf(a);
+        const bi = order.indexOf(b);
+        if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+        return a.localeCompare(b);
+      });
+
+      document.getElementById('clients-list').innerHTML = sectionNames.length ? sectionNames.map(section => {
+        const clients = groupedClients[section].slice().sort((a, b) => (a.lastSeen || 0) - (b.lastSeen || 0)).slice(0, 4);
+        const header = `<div class="row"><div><strong>${section}</strong><small>${groupedClients[section].length} 台在线设备</small></div><div>${badge(section, 'dim')}</div></div>`;
+        const cards = clients.map(c => {
+          const title = compactDeviceName(c);
+          const subtitle = [c.ip, c.vendor ? shortText(c.vendor, 18) : null].filter(Boolean).join(' · ');
+          const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
+          return `
+            <div class="client-card">
+              <div class="client-main">
+                <strong>${title}</strong>
+                <div class="client-meta">${subtitle || c.ip}</div>
+                <div class="client-meta">最近活跃 ${formatAge(age)} · 流量/速率待接入</div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge('在线', 'ok')}</div>
             </div>
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge(c.interface || 'unknown', 'dim')}${badge('在线', 'ok')}</div>
-          </div>
-        `;
+          `;
+        }).join('');
+        return header + cards;
       }).join('') : `<div class="row"><div><strong>暂无终端列表</strong><small>当前权限或接口未提供在线终端明细</small></div><div>${badge('待接入', 'dim')}</div></div>`;
     }
 
