@@ -343,6 +343,14 @@
       const canvas = document.getElementById('wan-canvas');
       const rx = data.points.map(p => ({ value: p.rx }));
       const tx = data.points.map(p => ({ value: p.tx }));
+      if (data.points.length < 2) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#8ea3c7';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('正在积累 WAN 流量样本…', 24, 32);
+        return;
+      }
       drawSeries(canvas, [rx, tx], ['#00e5ff', '#7c4dff']);
     }
 
@@ -357,7 +365,7 @@
     async function loadClients() {
       const data = await fetchJSON('/dashboard/clients/online');
       document.getElementById('clients-total').textContent = data.totalOnline;
-      document.getElementById('clients-list').innerHTML = data.clients.map(c => `
+      document.getElementById('clients-list').innerHTML = data.clients.length ? data.clients.map(c => `
         <div class="client-card">
           <div class="client-main">
             <strong>${c.hostname}</strong>
@@ -365,7 +373,7 @@
           </div>
           <div>${badge('在线', 'ok')}</div>
         </div>
-      `).join('');
+      `).join('') : `<div class="row"><div><strong>暂无终端列表</strong><small>当前权限或接口未提供在线终端明细</small></div><div>${badge('待接入', 'dim')}</div></div>`;
     }
 
     async function loadVpn() {

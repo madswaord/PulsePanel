@@ -13,6 +13,14 @@ function pickNumber(...values) {
   return null;
 }
 
+function formatBps(value) {
+  if (value == null || Number.isNaN(value)) return '0 bps';
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)} Gbps`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} Mbps`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(2)} Kbps`;
+  return `${Math.round(value)} bps`;
+}
+
 function parseSystemStatusPayload(payload) {
   if (!payload || typeof payload !== 'object') {
     return {
@@ -38,6 +46,51 @@ function parseSystemStatusPayload(payload) {
   };
 }
 
+function parseCpuStreamPayload(payload) {
+  if (!payload || typeof payload !== 'string') return null;
+  const matches = [...payload.matchAll(/data:\s*(\{[^\n]+\})/g)];
+  if (matches.length === 0) return null;
+
+  try {
+    const last = JSON.parse(matches[matches.length - 1][1]);
+    return pickNumber(last.total, last.user + last.sys + (last.intr || 0));
+  } catch {
+    return null;
+  }
+}
+
+function parseMemoryPayload(payload) {
+  const total = pickNumber(payload?.memory?.total, payload?.memory?.total_bytes);
+  const used = pickNumber(payload?.memory?.used, payload?.memory?.used_bytes);
+  if (total == null || used == null || total <= 0) return null;
+  return Math.round((used / total) * 1000) / 10;
+}
+
+function parseDiskPayload(payload) {
+  const devices = Array.isArray(payload?.devices) ? payload.devices : [];
+  const root = devices.find((item) => item.mountpoint === '/') || devices[0];
+  if (!root) return null;
+  return pickNumber(root.used_pct, root.usedPct);
+}
+
+function parseWireguardPayload(payload) {
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  const peers = rows.filter((item) => item.type === 'peer');
+  const onlinePeers = peers.filter((item) => item['peer-status'] === 'online');
+
+  return {
+    totalOnline: onlinePeers.length,
+    peers: onlinePeers
+  };
+}
+
+function parseFirewallStatesPayload(payload) {
+  return {
+    activeStates: pickNumber(payload?.current) ?? 0,
+    limit: pickNumber(payload?.limit)
+  };
+}
+
 function parseGatewayStatusPayload(payload) {
   if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
     return {
@@ -48,7 +101,7 @@ function parseGatewayStatusPayload(payload) {
     };
   }
 
-  const primary = payload.items.find(item => item.name === 'WAN_GW') || payload.items[0];
+  const primary = payload.items.find((item) => item.name === 'WAN_GW') || payload.items[0];
 
   const latencyMs = pickNumber(
     primary.delay,
@@ -76,7 +129,68 @@ function parseGatewayStatusPayload(payload) {
   };
 }
 
+function parseInterfacesPayload(payload) {
+  const rows = Array.isArray(payload) ? payload : [];
+  const wan = rows.find((item) => item.identifier === 'wan' || item.description === 'WAN')
+    || rows.find((item) => String(item.device || '').startsWith('pppoe'))
+    || rows[0];
+
+  if (!wan) return null;
+
+  const stats = wan.statistics || {};
+  return {
+    name: wan.description || wan.identifier || wan.device || 'WAN',
+    device: wan.device || null,
+    rxBytes: pickNumber(stats['bytes received'], stats.bytesReceived, stats.rxbytes),
+    txBytes: pickNumber(stats['bytes transmitted'], stats.bytesTransmitted, stats.txbytes),
+    status: wan.status || 'unknown'
+  };
+}
+
 export function createOpnsenseProvider(opnsenseClient, logger) {
+  const wanSamples = [];
+
+  function pushWanSample(sample) {
+    if (!sample) return;
+    wanSamples.push(sample);
+    while (wanSamples.length > 120) wanSamples.shift();
+  }
+
+  function buildWanRate(sample) {
+    if (!sample) {
+      return {
+        downloadBps: 0,
+        uploadBps: 0,
+        downloadHuman: '0 bps',
+        uploadHuman: '0 bps'
+      };
+    }
+
+    const prev = wanSamples[wanSamples.length - 2];
+    if (!prev) {
+      return {
+        downloadBps: 0,
+        uploadBps: 0,
+        downloadHuman: '0 bps',
+        uploadHuman: '0 bps'
+      };
+    }
+
+    const dt = sample.ts - prev.ts;
+    const rxDiff = sample.rxBytes - prev.rxBytes;
+    const txDiff = sample.txBytes - prev.txBytes;
+
+    const downloadBps = dt > 0 && rxDiff >= 0 ? (rxDiff * 8) / dt : 0;
+    const uploadBps = dt > 0 && txDiff >= 0 ? (txDiff * 8) / dt : 0;
+
+    return {
+      downloadBps,
+      uploadBps,
+      downloadHuman: formatBps(downloadBps),
+      uploadHuman: formatBps(uploadBps)
+    };
+  }
+
   async function safeProbe() {
     try {
       const data = await opnsenseClient.probe();
@@ -116,25 +230,119 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     }
   }
 
+  async function safeSystemResources() {
+    try {
+      const data = await opnsenseClient.getDiagnosticsSystemResources();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense system resources failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
+  async function safeSystemDisk() {
+    try {
+      const data = await opnsenseClient.getDiagnosticsSystemDisk();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense system disk failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
+  async function safeCpuStream() {
+    try {
+      const data = await opnsenseClient.getDiagnosticsCpuStream();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense cpu stream failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
+  async function safeWireguard() {
+    try {
+      const data = await opnsenseClient.getWireguardShow();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense wireguard status failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
+  async function safeFirewallStates() {
+    try {
+      const data = await opnsenseClient.getFirewallPfStates();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense firewall states failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
+  async function safeInterfacesOverview() {
+    try {
+      const data = await opnsenseClient.getInterfacesOverview();
+      return { ok: true, data };
+    } catch (error) {
+      logger.warn('OPNsense interfaces overview failed', {
+        message: error.message,
+        details: error.details || null
+      });
+      return { ok: false, error };
+    }
+  }
+
+  async function collectWanSample() {
+    const interfaces = await safeInterfacesOverview();
+    if (!interfaces.ok) return null;
+
+    const parsed = parseInterfacesPayload(interfaces.data);
+    if (!parsed) return null;
+
+    const sample = {
+      ts: nowTs(),
+      rxBytes: parsed.rxBytes ?? 0,
+      txBytes: parsed.txBytes ?? 0,
+      name: parsed.name,
+      device: parsed.device,
+      status: parsed.status
+    };
+    pushWanSample(sample);
+    return sample;
+  }
+
   return {
     async getOverview() {
-      const [wan, vpn, system] = await Promise.all([
+      const [wan, vpn, system, firewall, throughput] = await Promise.all([
         this.getWanStatus(),
         this.getVpnOnline(),
-        this.getSystemHealth()
+        this.getSystemHealth(),
+        this.getFirewallStates(),
+        this.getWanThroughput()
       ]);
 
       return {
         timestamp: nowTs(),
         wan,
-        throughput: {
-          downloadBps: 0,
-          uploadBps: 0,
-          downloadHuman: '0 bps',
-          uploadHuman: '0 bps'
-        },
+        throughput,
         firewall: {
-          activeStates: 0,
+          activeStates: firewall.activeStates,
           blockedLastMinute: 0
         },
         vpn,
@@ -162,36 +370,49 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getVpnOnline() {
+      const wireguard = await safeWireguard();
+      const wg = wireguard.ok ? parseWireguardPayload(wireguard.data) : { totalOnline: 0 };
+
       return {
-        totalOnline: 0,
+        totalOnline: wg.totalOnline,
         providers: {
-          wireguard: 0,
+          wireguard: wg.totalOnline,
           openvpn: 0
         }
       };
     },
 
     async getSystemHealth() {
-      const systemStatus = await safeSystemStatus();
+      const [systemStatus, resources, disk, cpu] = await Promise.all([
+        safeSystemStatus(),
+        safeSystemResources(),
+        safeSystemDisk(),
+        safeCpuStream()
+      ]);
+
       if (systemStatus.ok) {
         const parsed = parseSystemStatusPayload(systemStatus.data);
         return {
-          cpuPct: parsed.cpuPct,
-          memoryPct: parsed.memoryPct,
-          diskPct: parsed.diskPct,
+          cpuPct: cpu.ok ? parseCpuStreamPayload(cpu.data) : parsed.cpuPct,
+          memoryPct: resources.ok ? parseMemoryPayload(resources.data) : parsed.memoryPct,
+          diskPct: disk.ok ? parseDiskPayload(disk.data) : parsed.diskPct,
           status: parsed.rawReachable ? 'reachable' : 'unknown',
           statusText: parsed.statusText,
           message: parsed.message,
-          metricsSource: 'system_status_basic'
+          metricsSource: [
+            cpu.ok ? 'cpu_stream' : null,
+            resources.ok ? 'system_resources' : null,
+            disk.ok ? 'system_disk' : null
+          ].filter(Boolean).join('+') || 'system_status_basic'
         };
       }
 
       const probe = await safeProbe();
       const parsed = parseSystemStatusPayload(probe.data);
       return {
-        cpuPct: parsed.cpuPct,
-        memoryPct: parsed.memoryPct,
-        diskPct: parsed.diskPct,
+        cpuPct: null,
+        memoryPct: null,
+        diskPct: null,
         status: probe.reachable ? 'reachable' : 'unreachable',
         statusText: parsed.statusText,
         message: parsed.message,
@@ -200,16 +421,21 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getWanThroughput() {
-      return {
-        downloadBps: 0,
-        uploadBps: 0,
-        downloadHuman: '0 bps',
-        uploadHuman: '0 bps'
-      };
+      const sample = await collectWanSample();
+      return buildWanRate(sample);
     },
 
     async getWanTimeseries(range = '5m') {
-      return { range, points: [] };
+      await collectWanSample();
+      const points = wanSamples.slice(-60).map((sample, idx, arr) => {
+        if (idx === 0) return { ts: sample.ts, rx: 0, tx: 0 };
+        const prev = arr[idx - 1];
+        const dt = sample.ts - prev.ts;
+        const rx = dt > 0 ? Math.max(0, ((sample.rxBytes - prev.rxBytes) * 8) / dt) : 0;
+        const tx = dt > 0 ? Math.max(0, ((sample.txBytes - prev.txBytes) * 8) / dt) : 0;
+        return { ts: sample.ts, rx, tx };
+      });
+      return { range, points };
     },
 
     async getClientsOnline() {
@@ -220,9 +446,14 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getFirewallStates() {
+      const states = await safeFirewallStates();
+      const parsed = states.ok ? parseFirewallStatesPayload(states.data) : { activeStates: 0 };
       return {
-        activeStates: 0,
-        trend: []
+        activeStates: parsed.activeStates,
+        trend: Array.from({ length: 12 }, (_, idx) => ({
+          ts: nowTs() - (11 - idx) * 5,
+          value: parsed.activeStates
+        }))
       };
     }
   };
