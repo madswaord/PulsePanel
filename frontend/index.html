@@ -122,6 +122,7 @@
     .client-main strong { display:block; }
     .client-meta { color:var(--muted); font-size:12px; margin-top:4px; }
     .panel .row { border:1px solid rgba(255,255,255,0.04); }
+    .client-section { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
     .health-bar { height:10px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,0.08); margin-top:8px; }
     .health-fill { height:100%; border-radius:999px; }
     .fill-cpu { background:linear-gradient(90deg, #00e5ff, #7c4dff); }
@@ -528,7 +529,7 @@
           const subtitle = [c.ip, c.hostname && c.hostname !== c.ip ? shortText(c.hostname, 16) : null].filter(Boolean).join(' · ');
           const vendorLine = c.vendor ? shortText(c.vendor, 18) : '厂商待识别';
           const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
-          const aliasNote = (c.aliases || []).length ? `别名 ${c.aliases.slice(0, 1).join(', ')}` : '可用 alias 覆盖名称';
+          const aliasNote = (c.aliases || []).length ? `已配置别名 ${c.aliases.slice(0, 1).join(', ')}` : '可在 aliases 文件里自定义名称';
           return `
             <div class="client-card">
               <div class="client-main">
@@ -542,7 +543,7 @@
             </div>
           `;
         }).join('');
-        return header + cards;
+        return `<div class="client-section">${header}${cards}</div>`;
       }).join('') : `<div class="row"><div><strong>暂无终端列表</strong><small>当前权限或接口未提供在线终端明细</small></div><div>${badge('待接入', 'dim')}</div></div>`;
     }
 
