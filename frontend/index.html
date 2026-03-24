@@ -536,8 +536,8 @@
           const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
           const aliasNote = (c.aliases || []).length ? `已配置别名 ${c.aliases.slice(0, 1).join(', ')}` : '可在 aliases 文件里自定义名称';
           const aliasBadge = (c.aliases || []).length ? badge('Alias', 'success') : badge('Auto', 'dim');
-          const roleBadge = c.role ? badge(c.role, 'warn') : '';
-          const tagBadges = (c.tags || []).slice(0, 2).map(tag => badge(tag, 'dim')).join(' ');
+          const roleBadge = c.role ? badge(c.role, 'success') : '';
+          const tagBadges = (c.tags || []).slice(0, 2).map(tag => badge(tag, 'warn')).join(' ');
           const notesLine = c.notes ? `<div class="client-meta">备注 ${shortText(c.notes, 20)}</div>` : '';
           return `
             <div class="client-card">
