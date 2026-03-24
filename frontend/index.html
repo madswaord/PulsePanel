@@ -351,8 +351,11 @@
       ctx.clearRect(0, 0, w, h);
 
       const allValues = datasets.flatMap(d => d.map(p => p.value));
-      const min = Math.min(...allValues, 0);
-      const max = Math.max(...allValues, 1);
+      const rawMin = Math.min(...allValues, 0);
+      const rawMax = Math.max(...allValues, 1);
+      const spread = Math.max(1, rawMax - rawMin);
+      const min = rawMin - spread * 0.15;
+      const max = rawMax + spread * 0.15;
       const pad = 16;
       const innerW = w - pad * 2;
       const innerH = h - pad * 2;
