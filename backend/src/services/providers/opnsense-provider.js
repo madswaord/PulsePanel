@@ -232,12 +232,22 @@ export function createOpnsenseProvider(opnsenseClient, logger, deviceIdentitySto
 
   function pushWanSample(sample) {
     if (!sample) return;
+    const last = wanSamples[wanSamples.length - 1];
+    if (last && last.ts === sample.ts) {
+      wanSamples[wanSamples.length - 1] = sample;
+      return;
+    }
     wanSamples.push(sample);
-    while (wanSamples.length > 120) wanSamples.shift();
+    while (wanSamples.length > 720) wanSamples.shift();
   }
 
   function pushFirewallSample(sample) {
     if (!sample) return;
+    const last = firewallSamples[firewallSamples.length - 1];
+    if (last && last.ts === sample.ts) {
+      firewallSamples[firewallSamples.length - 1] = sample;
+      return;
+    }
     firewallSamples.push(sample);
     while (firewallSamples.length > 720) firewallSamples.shift();
   }
