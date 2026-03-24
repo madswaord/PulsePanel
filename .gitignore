@@ -1,6 +1,8 @@
 .env
 backend/node_modules/
 frontend/node_modules/
+backend/data/devices.json
+backend/data/device-aliases.json
 .DS_Store
 npm-debug.log*
 yarn-debug.log*
