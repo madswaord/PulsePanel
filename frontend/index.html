@@ -68,6 +68,7 @@
     .overview-lines { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:13px; line-height:1.45; }
     .flow-list { display:flex; flex-direction:column; gap:6px; max-height:120px; overflow:hidden; }
     .flow-item { animation: pulseFade 6s linear infinite; }
+    .flow-item:nth-child(1) { font-weight: 700; color: var(--text); }
     @keyframes pulseFade { 0% { opacity: .45; transform: translateY(6px);} 15% { opacity: 1; transform: translateY(0);} 85% { opacity: 1; transform: translateY(0);} 100% { opacity: .45; transform: translateY(-6px);} }
     .overview-lines strong { color:var(--text); font-size:13px; }
     .section-note { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 4px 0 12px; }
