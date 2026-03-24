@@ -548,7 +548,7 @@
             ], [badge('Overview', 'ok')])}
             ${overviewBlock('Top Clients', clientText || '暂无', (Array.isArray(clientItems) ? clientItems.slice(0, 3).map(item => `${item.client_ip || item.ip} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Top', 'warn')])}
             ${overviewBlock('Top Domains', domainText || '暂无', (Array.isArray(domainItems) ? domainItems.slice(0, 3).map(item => `${item.domain || item.name} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Top', 'warn')])}
-            ${overviewBlock('请求流', logText || '暂无', (Array.isArray(logItems) ? logItems.slice(0, 3).map(item => `${item.client || '--'} · ${item.domain || item.request_domain || '--'}`) : ['暂无']).slice(0,3), [badge('Log', 'ok')])}
+            ${overviewBlock('请求流', logText || '暂无', (Array.isArray(logItems) ? logItems.slice(0, 6).map(item => `${item.client || '--'} · ${item.domain || item.request_domain || '--'}`) : ['暂无']).slice(0,6), [badge('Log', 'ok')])}
           </div>
         `;
       } catch (err) {
