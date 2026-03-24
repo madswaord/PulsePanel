@@ -554,13 +554,28 @@
               `数据库 ${overview.database_size ?? '--'}`,
               `可用空间 ${overview.free_disk_space ?? '--'}`
             ], [badge('Overview', 'ok')])}
-            ${overviewBlock('Top Clients', clientText || '暂无', (Array.isArray(clientItems) ? clientItems.slice(0, 3).map(item => `${item.client_ip || item.ip} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Clients', 'warn')])}
-            ${overviewBlock('Top Domains', domainText || '暂无', (Array.isArray(domainItems) ? domainItems.slice(0, 3).map(item => `${item.domain || item.name} · ${item.query_count || '--'} 次`) : ['暂无']).slice(0,3), [badge('Domains', 'warn')])}
+            <div class="overview-block">
+              <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+                <div>
+                  <h4>Top Clients</h4>
+                </div>
+                <div class="overview-meta">${badge('Clients', 'warn')}</div>
+              </div>
+              <div class="flow-list">${(Array.isArray(clientItems) ? clientItems.slice(0, 5).map((item, idx) => `<div class="line">#${idx + 1} ${item.client_ip || item.ip || '--'} · ${item.query_count || '--'} 次</div>`) : ['<div class="line">暂无</div>']).join('')}</div>
+            </div>
+            <div class="overview-block">
+              <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+                <div>
+                  <h4>Top Domains</h4>
+                </div>
+                <div class="overview-meta">${badge('Domains', 'warn')}</div>
+              </div>
+              <div class="flow-list">${(Array.isArray(domainItems) ? domainItems.slice(0, 5).map((item, idx) => `<div class="line">#${idx + 1} ${item.domain || item.name || '--'} · ${item.query_count || '--'} 次</div>`) : ['<div class="line">暂无</div>']).join('')}</div>
+            </div>
             <div class="overview-block">
               <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
                 <div>
                   <h4>请求流</h4>
-                  <div class="mini">${logText || '暂无'}</div>
                 </div>
                 <div class="overview-meta">${badge('Log', 'ok')}</div>
               </div>
