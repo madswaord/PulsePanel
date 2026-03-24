@@ -446,8 +446,7 @@
         ], [badge('资产', 'ok')]),
         card('系统健康', data.system.summaryText || '待确认', [
           `<strong>CPU / 内存</strong> ${data.system.cpuPct ?? '--'}% / ${data.system.memoryPct ?? '--'}%`,
-          `<strong>磁盘</strong> ${data.system.diskPct ?? '--'}%`,
-          `<strong>关键服务</strong> ${serviceRunning}/${(data.system.services || []).length}`
+          `<strong>磁盘</strong> ${data.system.diskPct ?? '--'}%`
         ], [formatSummaryTag(data.system.summaryStatus)], data.system.summaryStatus === 'degraded' ? 'danger' : data.system.summaryStatus === 'elevated' ? 'warning' : ''),
         card('关键服务', `${serviceRunning}`, [
           ...((data.system.services || []).slice(0, 3).map(service => `<strong>${service.id}</strong> ${service.running ? '运行中' : '未运行'}`))
