@@ -229,6 +229,12 @@ cp backend/data/device-aliases.example.json backend/data/device-aliases.json
 - 重点设备标记
 - 角色识别
 
+如果你想参考完整格式，可以看：
+
+```text
+backend/data/device-identity.template.json
+```
+
 生效规则：
 1. PulsePanel 先从在线设备里识别 MAC
 2. 再读取 `device-aliases.json`
