@@ -16,6 +16,10 @@ export function createDeviceIdentityStore(projectRoot) {
   const aliasExamplePath = path.join(dataDir, 'device-aliases.example.json');
   ensureDir(dataDir);
 
+  if (!fs.existsSync(aliasPath)) {
+    fs.writeFileSync(aliasPath, '{}\n');
+  }
+
   function load() {
     try {
       return JSON.parse(fs.readFileSync(filePath, 'utf8'));
