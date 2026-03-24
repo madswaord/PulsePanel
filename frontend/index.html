@@ -121,6 +121,7 @@
     .client-card { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-radius:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.04); }
     .client-main strong { display:block; }
     .client-meta { color:var(--muted); font-size:12px; margin-top:4px; }
+    .client-primary { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .panel .row { border:1px solid rgba(255,255,255,0.04); }
     .client-section { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
     .client-summary { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
@@ -536,13 +537,13 @@
           return `
             <div class="client-card">
               <div class="client-main">
-                <strong>${title}</strong>
+                <div class="client-primary"><strong>${title}</strong>${aliasBadge}</div>
                 <div class="client-meta">${subtitle || c.ip}</div>
-                <div class="client-meta">${vendorLine}</div>
+                <div class="client-meta">厂商 ${vendorLine}</div>
                 <div class="client-meta">${aliasNote}</div>
                 <div class="client-meta">最近活跃 ${formatAge(age)} · 流量/速率待接入</div>
               </div>
-              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${aliasBadge}${badge('在线', 'ok')}${badge(c.interface || section, 'dim')}</div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge('在线', 'ok')}${badge(c.interface || section, 'dim')}</div>
             </div>
           `;
         }).join('');
