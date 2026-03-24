@@ -520,15 +520,18 @@
 
     async function loadDnsZone() {
       try {
-        const [overview, topClients, topDomains] = await Promise.all([
+        const [overview, topClients, topDomains, domainLogs] = await Promise.all([
           fetchJSON('/smartdns/overview'),
           fetchJSON('/smartdns/top/clients'),
-          fetchJSON('/smartdns/top/domains')
+          fetchJSON('/smartdns/top/domains'),
+          fetchJSON('/smartdns/domains')
         ]);
         const clientItems = topClients.client_top_list || topClients.data || topClients.clients || [];
         const domainItems = topDomains.domain_top_list || topDomains.data || topDomains.domains || [];
+        const logItems = domainLogs.domain_list || domainLogs.domain_logs || domainLogs.data || [];
         const clientText = Array.isArray(clientItems) ? clientItems.slice(0, 3).map(item => item.client_ip || item.client || item.name || item.ip).filter(Boolean).join(' · ') : '暂无';
         const domainText = Array.isArray(domainItems) ? domainItems.slice(0, 3).map(item => item.domain || item.name).filter(Boolean).join(' · ') : '暂无';
+        const logText = Array.isArray(logItems) ? logItems.slice(0, 3).map(item => item.domain || item.request_domain || item.name).filter(Boolean).join(' · ') : '暂无';
         document.getElementById('dns-zone').innerHTML = `
           <div class="section-head">
             <div>
@@ -549,8 +552,12 @@
             ], [badge('Top', 'warn')])}
             ${overviewBlock('Top Domains', domainText || '暂无', [
               '热门域名排行入口',
-              '后续可接滚动请求流'
+              '后续可接地图可视化'
             ], [badge('Top', 'warn')])}
+            ${overviewBlock('请求流', logText || '暂无', [
+              '滚动 DNS 请求入口',
+              '下一步可做实时流与地图'
+            ], [badge('Log', 'ok')])}
           </div>
         `;
       } catch (err) {

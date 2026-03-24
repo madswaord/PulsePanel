@@ -52,6 +52,7 @@ export function createSmartDnsClient(config) {
   return {
     getOverview: () => get('/api/stats/overview'),
     getTopClients: () => get('/api/stats/top/client'),
-    getTopDomains: () => get('/api/stats/top/domain')
+    getTopDomains: () => get('/api/stats/top/domain'),
+    getDomainLogs: () => get('/api/domain?limit=20')
   };
 }

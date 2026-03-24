@@ -154,6 +154,14 @@ app.get('/api/smartdns/top/domains', async (_req, res, next) => {
   }
 });
 
+app.get('/api/smartdns/domains', async (_req, res, next) => {
+  try {
+    res.json(await smartdnsClient.getDomainLogs());
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((error, _req, res, _next) => {
   const status = error instanceof HttpError ? error.status : 500;
   logger.error('Request failed', {
