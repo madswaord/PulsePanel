@@ -300,7 +300,10 @@
     function formatWanSub(wan) {
       const latency = wan.latencyMs == null ? '待映射' : `${wan.latencyMs} ms`;
       const loss = wan.packetLossPct == null ? '待映射' : `${wan.packetLossPct}%`;
-      return `状态 ${wan.statusText} · 延迟 ${latency} · 丢包 ${loss}`;
+      const iface = wan.interfaceName || wan.device || 'WAN';
+      const ip = wan.publicIp || '待映射';
+      const gw = wan.gatewayAddress || '待映射';
+      return `${iface} · IP ${ip} · GW ${gw} · 延迟 ${latency} · 丢包 ${loss}`;
     }
 
     function formatFirewallSub(firewall) {

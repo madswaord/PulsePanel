@@ -108,7 +108,10 @@ function parseGatewayStatusPayload(payload) {
       online: false,
       latencyMs: null,
       packetLossPct: null,
-      statusText: 'unreachable'
+      statusText: 'unreachable',
+      gatewayName: null,
+      gatewayAddress: null,
+      monitorIp: null
     };
   }
 
@@ -136,7 +139,10 @@ function parseGatewayStatusPayload(payload) {
     online: translated === 'Online' || primary.status === 'none' || primary.status === 'online',
     latencyMs,
     packetLossPct,
-    statusText
+    statusText,
+    gatewayName: primary.name || null,
+    gatewayAddress: primary.address || null,
+    monitorIp: primary.monitor || null
   };
 }
 
@@ -151,7 +157,10 @@ function parseInterfacesPayload(payload) {
   const stats = wan.statistics || {};
   return {
     name: wan.description || wan.identifier || wan.device || 'WAN',
+    interface: wan.identifier || null,
     device: wan.device || null,
+    ipAddress: (wan.addr4 || wan.addr6 || '').split('/')[0] || null,
+    gateways: Array.isArray(wan.gateways) ? wan.gateways : [],
     rxBytes: pickNumber(stats['bytes received'], stats.bytesReceived, stats.rxbytes),
     txBytes: pickNumber(stats['bytes transmitted'], stats.bytesTransmitted, stats.txbytes),
     status: wan.status || 'unknown'
@@ -398,7 +407,10 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
       rxBytes: parsed.rxBytes ?? 0,
       txBytes: parsed.txBytes ?? 0,
       name: parsed.name,
+      interface: parsed.interface,
       device: parsed.device,
+      ipAddress: parsed.ipAddress,
+      gateways: parsed.gateways,
       status: parsed.status
     };
     pushWanSample(sample);
@@ -436,9 +448,27 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     },
 
     async getWanStatus() {
-      const gateway = await safeGatewayStatus();
-      if (gateway.ok) {
-        return parseGatewayStatusPayload(gateway.data);
+      const [gateway, interfaces] = await Promise.all([
+        safeGatewayStatus(),
+        safeInterfacesOverview()
+      ]);
+      const parsedGateway = gateway.ok ? parseGatewayStatusPayload(gateway.data) : null;
+      const parsedInterface = interfaces.ok ? parseInterfacesPayload(interfaces.data) : null;
+
+      if (parsedGateway || parsedInterface) {
+        return {
+          online: parsedGateway ? parsedGateway.online : parsedInterface?.status === 'up',
+          latencyMs: parsedGateway?.latencyMs ?? null,
+          packetLossPct: parsedGateway?.packetLossPct ?? null,
+          statusText: parsedGateway?.statusText || parsedInterface?.status || 'reachable',
+          gatewayName: parsedGateway?.gatewayName ?? null,
+          gatewayAddress: parsedGateway?.gatewayAddress ?? parsedInterface?.gateways?.[0] ?? null,
+          monitorIp: parsedGateway?.monitorIp ?? null,
+          interfaceName: parsedInterface?.name ?? null,
+          interfaceId: parsedInterface?.interface ?? null,
+          device: parsedInterface?.device ?? null,
+          publicIp: parsedInterface?.ipAddress ?? null
+        };
       }
 
       const probe = await safeProbe();
@@ -446,7 +476,14 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
         online: probe.reachable,
         latencyMs: null,
         packetLossPct: null,
-        statusText: probe.reachable ? 'reachable' : 'unreachable'
+        statusText: probe.reachable ? 'reachable' : 'unreachable',
+        gatewayName: null,
+        gatewayAddress: null,
+        monitorIp: null,
+        interfaceName: null,
+        interfaceId: null,
+        device: null,
+        publicIp: null
       };
     },
 
