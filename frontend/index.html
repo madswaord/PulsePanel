@@ -530,6 +530,7 @@
           const vendorLine = c.vendor ? shortText(c.vendor, 18) : '厂商待识别';
           const age = Math.max(1, Math.round(Date.now()/1000 - c.lastSeen));
           const aliasNote = (c.aliases || []).length ? `已配置别名 ${c.aliases.slice(0, 1).join(', ')}` : '可在 aliases 文件里自定义名称';
+          const aliasBadge = (c.aliases || []).length ? badge('Alias', 'success') : badge('Auto', 'dim');
           return `
             <div class="client-card">
               <div class="client-main">
@@ -539,7 +540,7 @@
                 <div class="client-meta">${aliasNote}</div>
                 <div class="client-meta">最近活跃 ${formatAge(age)} · 流量/速率待接入</div>
               </div>
-              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${badge('在线', 'ok')}${badge(c.interface || section, 'dim')}</div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">${aliasBadge}${badge('在线', 'ok')}${badge(c.interface || section, 'dim')}</div>
             </div>
           `;
         }).join('');
