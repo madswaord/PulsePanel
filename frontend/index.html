@@ -89,6 +89,16 @@
     .dot.cyan { background:var(--cyan); box-shadow:0 0 12px var(--cyan); }
     .dot.purple { background:var(--purple); box-shadow:0 0 12px var(--purple); }
     .dot.red { background:var(--red); box-shadow:0 0 12px var(--red); }
+    .section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .section-head .metric-mini { font-size:24px; font-weight:800; }
+    .client-card { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-radius:14px; background:rgba(255,255,255,0.03); }
+    .client-main strong { display:block; }
+    .client-meta { color:var(--muted); font-size:12px; margin-top:4px; }
+    .health-bar { height:10px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,0.08); margin-top:8px; }
+    .health-fill { height:100%; border-radius:999px; }
+    .fill-cpu { background:linear-gradient(90deg, #00e5ff, #7c4dff); }
+    .fill-mem { background:linear-gradient(90deg, #00ffb3, #00e5ff); }
+    .fill-disk { background:linear-gradient(90deg, #ff9f43, #ff4d6d); }
     @media (max-width: 1280px) {
       .grid-top { grid-template-columns: repeat(3, 1fr); }
       .grid-main, .grid-bottom { grid-template-columns: 1fr; }
@@ -151,15 +161,33 @@
 
     <section class="grid-bottom">
       <div class="panel">
-        <h3>在线终端</h3>
+        <div class="section-head">
+          <div>
+            <h3>在线终端</h3>
+            <div class="sub">当前活跃 LAN 终端</div>
+          </div>
+          <div class="metric-mini" id="clients-total">--</div>
+        </div>
         <div class="list" id="clients-list"></div>
       </div>
       <div class="panel">
-        <h3>VPN 状态</h3>
+        <div class="section-head">
+          <div>
+            <h3>VPN 状态</h3>
+            <div class="sub">远程接入与隧道在线</div>
+          </div>
+          <div class="metric-mini" id="vpn-total">--</div>
+        </div>
         <div class="list" id="vpn-list"></div>
       </div>
       <div class="panel">
-        <h3>系统健康</h3>
+        <div class="section-head">
+          <div>
+            <h3>系统健康</h3>
+            <div class="sub">设备资源与接入状态</div>
+          </div>
+          <div id="system-status-badge"></div>
+        </div>
         <div class="list" id="system-list"></div>
       </div>
     </section>
@@ -268,16 +296,17 @@
       ].join('');
 
       const systemStatusTag = data.system.status === 'reachable'
-        ? '<span class="tag ok">已接入</span>'
+        ? badge('已接入', 'ok')
         : data.system.status === 'unreachable'
-          ? '<span class="tag err">不可达</span>'
-          : '<span class="tag warn">模拟中</span>';
+          ? badge('不可达', 'err')
+          : badge('模拟中', 'warn');
 
+      document.getElementById('system-status-badge').innerHTML = systemStatusTag;
       document.getElementById('system-list').innerHTML = [
-        `<div class="row"><div>CPU<small>当前占用</small></div><div class="tag">${data.system.cpuPct ?? '--'}${data.system.cpuPct != null ? '%' : ''}</div></div>`,
-        `<div class="row"><div>内存<small>当前占用</small></div><div class="tag">${data.system.memoryPct ?? '--'}${data.system.memoryPct != null ? '%' : ''}</div></div>`,
-        `<div class="row"><div>磁盘<small>当前占用</small></div><div class="tag warn">${data.system.diskPct ?? '--'}${data.system.diskPct != null ? '%' : ''}</div></div>`,
-        `<div class="row"><div>整体状态<small>系统健康</small></div><div>${systemStatusTag}</div></div>`
+        `<div class="row"><div><strong>CPU</strong><small>当前占用 ${data.system.cpuPct ?? '--'}${data.system.cpuPct != null ? '%' : ''}</small><div class="health-bar"><div class="health-fill fill-cpu" style="width:${data.system.cpuPct ?? 0}%"></div></div></div></div>`,
+        `<div class="row"><div><strong>内存</strong><small>当前占用 ${data.system.memoryPct ?? '--'}${data.system.memoryPct != null ? '%' : ''}</small><div class="health-bar"><div class="health-fill fill-mem" style="width:${data.system.memoryPct ?? 0}%"></div></div></div></div>`,
+        `<div class="row"><div><strong>磁盘</strong><small>当前占用 ${data.system.diskPct ?? '--'}${data.system.diskPct != null ? '%' : ''}</small><div class="health-bar"><div class="health-fill fill-disk" style="width:${data.system.diskPct ?? 0}%"></div></div></div></div>`,
+        `<div class="row"><div><strong>状态</strong><small>设备接入与资源概况</small></div><div>${systemStatusTag}</div></div>`
       ].join('');
     }
 
@@ -300,21 +329,23 @@
 
     async function loadClients() {
       const data = await fetchJSON('/dashboard/clients/online');
+      document.getElementById('clients-total').textContent = data.totalOnline;
       document.getElementById('clients-list').innerHTML = data.clients.map(c => `
-        <div class="row">
-          <div>
+        <div class="client-card">
+          <div class="client-main">
             <strong>${c.hostname}</strong>
-            <small>${c.ip}</small>
+            <div class="client-meta">${c.ip} · 最近活跃 ${Math.max(1, Math.round(Date.now()/1000 - c.lastSeen))} 秒前</div>
           </div>
-          <div class="mono sub">在线</div>
+          <div>${badge('在线', 'ok')}</div>
         </div>
       `).join('');
     }
 
     async function loadVpn() {
       const data = await fetchJSON('/dashboard/vpn/online');
+      document.getElementById('vpn-total').textContent = data.totalOnline;
       document.getElementById('vpn-list').innerHTML = [
-        `<div class="row"><div><strong>总在线人数</strong><small>VPN 当前总在线</small></div><div class="tag">${data.totalOnline}</div></div>`,
+        `<div class="row"><div><strong>总在线人数</strong><small>VPN 当前总在线</small></div><div class="tag ok">${data.totalOnline}</div></div>`,
         `<div class="row"><div><strong>WireGuard</strong><small>在线 Peer</small></div><div class="tag">${data.providers.wireguard}</div></div>`,
         `<div class="row"><div><strong>OpenVPN</strong><small>在线 Client</small></div><div class="tag warn">${data.providers.openvpn}</div></div>`
       ].join('');
