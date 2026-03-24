@@ -421,7 +421,10 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
         throughput,
         firewall: {
           activeStates: firewall.activeStates,
-          blockedLastMinute: 0
+          blockedLastMinute: 0,
+          limit: firewall.limit,
+          pressurePct: firewall.pressurePct,
+          status: firewall.status
         },
         vpn,
         dns: {
@@ -532,8 +535,14 @@ export function createOpnsenseProvider(opnsenseClient, logger) {
     async getFirewallStates() {
       const states = await safeFirewallStates();
       const parsed = states.ok ? parseFirewallStatesPayload(states.data) : { activeStates: 0 };
+      const limit = parsed.limit ?? 0;
+      const pressurePct = limit > 0 ? Math.round((parsed.activeStates / limit) * 1000) / 10 : null;
+      const status = pressurePct == null ? 'unknown' : pressurePct >= 85 ? 'high' : pressurePct >= 60 ? 'elevated' : 'normal';
       return {
         activeStates: parsed.activeStates,
+        limit,
+        pressurePct,
+        status,
         trend: Array.from({ length: 12 }, (_, idx) => ({
           ts: nowTs() - (11 - idx) * 5,
           value: parsed.activeStates

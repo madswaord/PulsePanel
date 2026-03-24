@@ -303,6 +303,12 @@
       return `状态 ${wan.statusText} · 延迟 ${latency} · 丢包 ${loss}`;
     }
 
+    function formatFirewallSub(firewall) {
+      const pressure = firewall.pressurePct == null ? '待映射' : `${firewall.pressurePct}%`;
+      const limit = firewall.limit ? ` / ${firewall.limit}` : '';
+      return `状态 ${firewall.status || 'unknown'} · 压力 ${pressure} · ${firewall.activeStates}${limit}`;
+    }
+
     async function loadIntegrationStatus() {
       const [health, capabilities] = await Promise.all([
         fetchJSON('/health'),
@@ -341,7 +347,7 @@
         card('WAN 链路', data.wan.online ? '在线' : '离线', formatWanSub(data.wan)),
         card('总下载', data.throughput.downloadHuman, '当前下行速率'),
         card('总上传', data.throughput.uploadHuman, '当前上行速率'),
-        card('防火墙', data.firewall.activeStates, `最近 1 分钟 Block ${data.firewall.blockedLastMinute}`),
+        card('防火墙', data.firewall.activeStates, formatFirewallSub(data.firewall)),
         card('VPN 在线', data.vpn.totalOnline, `WG ${data.vpn.providers.wireguard} · OVPN ${data.vpn.providers.openvpn}`),
         card('DNS 脉冲', `${data.dns.qps} QPS`, data.dns.status)
       ].join('');
@@ -380,7 +386,8 @@
 
     async function loadFirewallChart() {
       const data = await fetchJSON('/dashboard/firewall/states');
-      document.getElementById('fw-current').textContent = `${data.activeStates}`;
+      const pressure = data.pressurePct == null ? '压力未知' : `压力 ${data.pressurePct}%`;
+      document.getElementById('fw-current').textContent = `${data.activeStates} · ${pressure}`;
       const canvas = document.getElementById('fw-canvas');
       const values = data.trend.map(p => ({ value: p.value }));
       drawSeries(canvas, [values], ['#ff4d6d']);
