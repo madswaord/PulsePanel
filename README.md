@@ -535,6 +535,8 @@ curl http://127.0.0.1:8710/api/opnsense/probe
 docs/opnsense-api-permissions.md
 ```
 
+## 限制与扩展
+
 # 9. 已知限制
 
 当前 OPNsense API 权限/接口限制下：
